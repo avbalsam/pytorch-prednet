@@ -5,7 +5,7 @@ import torch.nn as nn
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
 
-from kitti_data import KITTI
+from mnist_data import MNIST_Frames
 from prednet import PredNet
 
 from debug import info
@@ -22,18 +22,11 @@ time_loss_weights = 1. / (nt - 1) * torch.ones(nt, 1)
 time_loss_weights[0] = 0
 time_loss_weights = Variable(time_loss_weights.cpu())
 
-DATA_DIR = './kitti_hkl/'
+mnist_train = MNIST_Frames(nt, train=True)
+mnist_val = MNIST_Frames(nt, train=False)
 
-train_file = os.path.join(DATA_DIR, 'X_train.hkl')
-train_sources = os.path.join(DATA_DIR, 'sources_train.hkl')
-val_file = os.path.join(DATA_DIR, 'X_val.hkl')
-val_sources = os.path.join(DATA_DIR, 'sources_val.hkl')
-
-kitti_train = KITTI(train_file, train_sources, nt)
-kitti_val = KITTI(val_file, val_sources, nt)
-
-train_loader = DataLoader(kitti_train, batch_size=batch_size, shuffle=True)
-val_loader = DataLoader(kitti_val, batch_size=batch_size, shuffle=True)
+train_loader = DataLoader(mnist_train, batch_size=batch_size, shuffle=True)
+val_loader = DataLoader(mnist_val, batch_size=batch_size, shuffle=True)
 
 model = PredNet(R_channels, A_channels, output_mode='error')
 if torch.cuda.is_available():
