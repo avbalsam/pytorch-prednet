@@ -15,6 +15,7 @@ class PredNet(nn.Module):
         self.a_channels = A_channels
         self.n_layers = len(R_channels)
         self.output_mode = output_mode
+        self.classification = list()
 
         default_output_modes = ['prediction', 'error']
         assert output_mode in default_output_modes, 'Invalid output_mode: ' + str(output_mode)
@@ -33,6 +34,9 @@ class PredNet(nn.Module):
 
         self.upsample = nn.Upsample(scale_factor=2)
         self.maxpool = nn.MaxPool2d(kernel_size=2, stride=2)
+
+        # TODO: Find dimensions of E and change in_features
+        # self.linear = nn.Linear(in_features=192, out_features=10)
 
         for l in range(self.n_layers - 1):
             update_A = nn.Sequential(nn.Conv2d(2* self.a_channels[l], self.a_channels[l+1], (3, 3), padding=1), self.maxpool)
@@ -54,9 +58,10 @@ class PredNet(nn.Module):
         w, h = input.size(-2), input.size(-1)
         batch_size = input.size(0)
 
+        # Add another linear layer with mnist dimensions (10) and use as classifier
         for l in range(self.n_layers):
-            E_seq[l] = Variable(torch.zeros(batch_size, 2*self.a_channels[l], w, h)).cuda()
-            R_seq[l] = Variable(torch.zeros(batch_size, self.r_channels[l], w, h)).cuda()
+            E_seq[l] = Variable(torch.zeros(batch_size, 2*self.a_channels[l], w, h)).cpu()
+            R_seq[l] = Variable(torch.zeros(batch_size, self.r_channels[l], w, h)).cpu()
             w = w//2
             h = h//2
         time_steps = input.size(1)
@@ -64,7 +69,7 @@ class PredNet(nn.Module):
         
         for t in range(time_steps):
             A = input[:,t]
-            A = A.type(torch.cuda.FloatTensor)
+            A = A.type(torch.FloatTensor)
             
             for l in reversed(range(self.n_layers)):
                 cell = getattr(self, 'cell{}'.format(l))
@@ -84,7 +89,6 @@ class PredNet(nn.Module):
                 R_seq[l] = R
                 H_seq[l] = hx
 
-
             for l in range(self.n_layers):
                 conv = getattr(self, 'conv{}'.format(l))
                 A_hat = conv(R_seq[l])
@@ -97,13 +101,17 @@ class PredNet(nn.Module):
                 if l < self.n_layers - 1:
                     update_A = getattr(self, 'update_A{}'.format(l))
                     A = update_A(E)
+                #if l == -1:
+                #    # Avi
+                #    # TODO: Do flattening and pooling to reduce dimensionality of E to (1*10) vector
+                #    self.classification = self.linear(E)
             if self.output_mode == 'error':
                 mean_error = torch.cat([torch.mean(e.view(e.size(0), -1), 1, keepdim=True) for e in E_seq], 1)
                 # batch x n_layers
                 total_error.append(mean_error)
 
         if self.output_mode == 'error':
-            return torch.stack(total_error, 2) # batch x n_layers x nt
+            return torch.stack(total_error, 2) #, self.classification # batch x n_layers x nt
         elif self.output_mode == 'prediction':
             return frame_prediction
 

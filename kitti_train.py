@@ -10,26 +10,24 @@ from prednet import PredNet
 
 from debug import info
 
-
 num_epochs = 150
 batch_size = 16
 A_channels = (3, 48, 96, 192)
 R_channels = (3, 48, 96, 192)
-lr = 0.001 # if epoch < 75 else 0.0001
-nt = 10 # num of time steps
+lr = 0.001  # if epoch < 75 else 0.0001
+nt = 3  # num of time steps
 
-layer_loss_weights = Variable(torch.FloatTensor([[1.], [0.], [0.], [0.]]).cuda())
-time_loss_weights = 1./(nt - 1) * torch.ones(nt, 1)
+layer_loss_weights = Variable(torch.FloatTensor([[1.], [0.], [0.], [0.]]).cpu())
+time_loss_weights = 1. / (nt - 1) * torch.ones(nt, 1)
 time_loss_weights[0] = 0
-time_loss_weights = Variable(time_loss_weights.cuda())
+time_loss_weights = Variable(time_loss_weights.cpu())
 
-DATA_DIR = '/media/lei/000F426D0004CCF4/datasets/kitti_data'
+DATA_DIR = './kitti_hkl/'
 
 train_file = os.path.join(DATA_DIR, 'X_train.hkl')
 train_sources = os.path.join(DATA_DIR, 'sources_train.hkl')
 val_file = os.path.join(DATA_DIR, 'X_val.hkl')
 val_sources = os.path.join(DATA_DIR, 'sources_val.hkl')
-
 
 kitti_train = KITTI(train_file, train_sources, nt)
 kitti_val = KITTI(val_file, val_sources, nt)
@@ -44,8 +42,9 @@ if torch.cuda.is_available():
 
 optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
+
 def lr_scheduler(optimizer, epoch):
-    if epoch < num_epochs //2:
+    if epoch < num_epochs // 2:
         return optimizer
     else:
         for param_group in optimizer.param_groups:
@@ -53,24 +52,28 @@ def lr_scheduler(optimizer, epoch):
         return optimizer
 
 
-
 for epoch in range(num_epochs):
     optimizer = lr_scheduler(optimizer, epoch)
-    for i, inputs in enumerate(train_loader):
-        inputs = inputs.permute(0, 1, 4, 2, 3) # batch x time_steps x channel x width x height
-        inputs = Variable(inputs.cuda())
-        errors = model(inputs) # batch x n_layers x nt
+    for i, inputs in enumerate(train_loader): # TODO: Get labels from MNIST and iterate over them as well
+        inputs = inputs.permute(0, 1, 4, 2, 3)  # batch x time_steps x channel x width x height
+        inputs = Variable(inputs.cpu())
+        errors = model(inputs)  # batch x n_layers x nt
+        # errors, classification = model(inputs)  # batch x n_layers x nt
         loc_batch = errors.size(0)
-        errors = torch.mm(errors.view(-1, nt), time_loss_weights) # batch*n_layers x 1
+        errors = torch.mm(errors.view(-1, nt), time_loss_weights)  # batch*n_layers x 1
         errors = torch.mm(errors.view(loc_batch, -1), layer_loss_weights)
         errors = torch.mean(errors)
 
+        # TODO: Get class from MNIST and compare to classification, and subtract the classification of network from true value to get classification error
+        # errors_classification = torch.nn.functional.mse_loss(classification, labels)  # Maybe change loss function to cross_entropy
+        # errors_total = errors + errors_classification
+
         optimizer.zero_grad()
 
-        errors.backward()
+        errors.backward()  # Change to errors_total
 
         optimizer.step()
-        if i%10 == 0:
-            print('Epoch: {}/{}, step: {}/{}, errors: {}'.format(epoch, num_epochs, i, len(kitti_train)//batch_size, errors.data[0]))
+        if i % 2 == 0:
+            print('Epoch: {}/{}, step: {}/{}, errors: {}'.format(epoch, num_epochs, i, len(kitti_train) // batch_size, errors.item()))
 
 torch.save(model.state_dict(), 'training.pt')

@@ -4,12 +4,12 @@ import torch
 import torch.utils.data as data
 
 
-
 class KITTI(data.Dataset):
     def __init__(self, datafile, sourcefile, nt):
         self.datafile = datafile
         self.sourcefile = sourcefile
         self.X = hkl.load(self.datafile)
+        # TODO: Resize images
         self.sources = hkl.load(self.sourcefile)
         self.nt = nt
         cur_loc = 0
@@ -24,8 +24,7 @@ class KITTI(data.Dataset):
 
     def __getitem__(self, index):
         loc = self.possible_starts[index]
-        return self.X[loc:loc+self.nt]
-
+        return self.X[loc:loc + self.nt]
 
     def __len__(self):
         return len(self.possible_starts)
