@@ -47,7 +47,7 @@ def lr_scheduler(optimizer, epoch):
 
 for epoch in range(num_epochs):
     optimizer = lr_scheduler(optimizer, epoch)
-    for i, inputs in enumerate(train_loader):  # TODO: Get labels from MNIST and iterate over them as well
+    for i, inputs, labels in enumerate(train_loader):  # TODO: Get labels from MNIST and iterate over them as well
         inputs = inputs.permute(0, 1, 4, 2, 3)  # batch x time_steps x channel x width x height
         inputs = Variable(inputs.cpu())
         errors = model(inputs)  # batch x n_layers x nt
