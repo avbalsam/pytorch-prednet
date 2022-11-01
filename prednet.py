@@ -50,7 +50,6 @@ class PredNet(nn.Module):
             cell.reset_parameters()
 
     def forward(self, input):
-
         R_seq = [None] * self.n_layers
         H_seq = [None] * self.n_layers
         E_seq = [None] * self.n_layers

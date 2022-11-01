@@ -14,9 +14,11 @@ class MNIST_Frames(torchvision.datasets.MNIST):
 
     def __getitem__(self, index):
         item = super().__getitem__(index)
-        print(item)
-        frames, _class = [np.array(item[0].getdata()) for _ in range(self.nt)], item[1]
-        return frames
+        img = torchvision.transforms.Resize(32)(item[0])
+        frames = img.unsqueeze(0)
+        frames = frames.repeat(self.nt, 3, 1, 1)
+        _class = item[1]
+        return frames, _class
 
     def __len__(self):
         return len(super().train_data)

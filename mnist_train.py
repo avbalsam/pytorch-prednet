@@ -47,8 +47,8 @@ def lr_scheduler(optimizer, epoch):
 
 for epoch in range(num_epochs):
     optimizer = lr_scheduler(optimizer, epoch)
-    for i, inputs, labels in enumerate(train_loader):  # TODO: Get labels from MNIST and iterate over them as well
-        inputs = inputs.permute(0, 1, 4, 2, 3)  # batch x time_steps x channel x width x height
+    for i, (inputs, _class) in enumerate(train_loader):  # TODO: Get labels from MNIST and iterate over them as well
+        # inputs = inputs.permute(0, 1, 4, 2, 3)  # batch x time_steps x channel x width x height
         inputs = Variable(inputs.cpu())
         errors = model(inputs)  # batch x n_layers x nt
         # errors, classification = model(inputs)  # batch x n_layers x nt
@@ -67,6 +67,6 @@ for epoch in range(num_epochs):
 
         optimizer.step()
         if i % 2 == 0:
-            print('Epoch: {}/{}, step: {}/{}, errors: {}'.format(epoch, num_epochs, i, len(kitti_train) // batch_size, errors.item()))
+            print('Epoch: {}/{}, step: {}/{}, errors: {}'.format(epoch, num_epochs, i, len(mnist_train) // batch_size, errors.item()))
 
 torch.save(model.state_dict(), 'training.pt')
