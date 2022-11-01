@@ -100,17 +100,17 @@ class PredNet(nn.Module):
                 if l < self.n_layers - 1:
                     update_A = getattr(self, 'update_A{}'.format(l))
                     A = update_A(E)
-                #if l == -1:
-                #    # Avi
-                #    # TODO: Do flattening and pooling to reduce dimensionality of E to (1*10) vector
-                #    self.classification = self.linear(E)
+            # Avi
+            # TODO: Do flattening and pooling to reduce dimensionality of E to (1*10) vector
+            flattened = nn.Flatten()(E)
+            self.classification = nn.Linear(6144, 16)(flattened)
             if self.output_mode == 'error':
                 mean_error = torch.cat([torch.mean(e.view(e.size(0), -1), 1, keepdim=True) for e in E_seq], 1)
                 # batch x n_layers
                 total_error.append(mean_error)
 
         if self.output_mode == 'error':
-            return torch.stack(total_error, 2) #, self.classification # batch x n_layers x nt
+            return torch.stack(total_error, 2), self.classification # batch x n_layers x nt
         elif self.output_mode == 'prediction':
             return frame_prediction
 
