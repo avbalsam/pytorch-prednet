@@ -15,7 +15,7 @@ class PredNet(nn.Module):
         self.a_channels = A_channels
         self.n_layers = len(R_channels)
         self.output_mode = output_mode
-        self.classification = list()
+        self.linear = nn.Linear(6144, 10)
 
         default_output_modes = ['prediction', 'error']
         assert output_mode in default_output_modes, 'Invalid output_mode: ' + str(output_mode)
@@ -67,7 +67,7 @@ class PredNet(nn.Module):
         total_error = []
         
         for t in range(time_steps):
-            A = input[:,t]
+            A = input[:, t]
             A = A.type(torch.FloatTensor)
             
             for l in reversed(range(self.n_layers)):
@@ -102,15 +102,16 @@ class PredNet(nn.Module):
                     A = update_A(E)
             # Avi
             # TODO: Do flattening and pooling to reduce dimensionality of E to (1*10) vector
-            flattened = nn.Flatten()(E)
-            self.classification = nn.Linear(6144, 16)(flattened)
+            flattened = [torch.flatten(e) for e in E]
+            classification = [self.linear(im) for im in flattened]
+
             if self.output_mode == 'error':
                 mean_error = torch.cat([torch.mean(e.view(e.size(0), -1), 1, keepdim=True) for e in E_seq], 1)
                 # batch x n_layers
                 total_error.append(mean_error)
 
         if self.output_mode == 'error':
-            return torch.stack(total_error, 2), self.classification # batch x n_layers x nt
+            return torch.stack(total_error, 2), classification # batch x n_layers x nt
         elif self.output_mode == 'prediction':
             return frame_prediction
 

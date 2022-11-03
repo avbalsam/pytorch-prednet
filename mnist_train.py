@@ -15,7 +15,7 @@ batch_size = 16
 A_channels = (3, 48, 96, 192)
 R_channels = (3, 48, 96, 192)
 lr = 0.00001  # if epoch < 75 else 0.0001
-nt = 3  # num of time steps
+nt = 5  # num of time steps
 
 layer_loss_weights = Variable(torch.FloatTensor([[1.], [0.], [0.], [0.]]).cpu())
 time_loss_weights = 1. / (nt - 1) * torch.ones(nt, 1)
@@ -59,18 +59,21 @@ for epoch in range(num_epochs):
         errors = torch.mm(errors.view(loc_batch, -1), layer_loss_weights)
         errors = torch.mean(errors)
 
-        label_arr = torch.FloatTensor([[float(label == labels[i]) for label in range(16)] for i in range(16)]) # Create a tensor of label arrays to compare with classification tensor
-        classification_error = torch.nn.functional.mse_loss(classification, label_arr)  # Maybe change loss function to cross_entropy
+        label_arr = [[float(label == labels[i]) for label in range(10)] for i in range(16)] # Create a tensor of label arrays to compare with classification tensor
+        classification_errors = list()
+        for c in range(len(classification)):
+            classification_errors.append(torch.nn.functional.cross_entropy(classification[c], torch.FloatTensor(label_arr[c])))  # Maybe change loss function to cross_entropy
 
+        mean_classification_error = torch.mean(torch.FloatTensor(classification_errors))
         reconstruction_error = errors
-        errors_total = torch.add(errors, classification_error.item())
+        errors_total = torch.add(errors, mean_classification_error.item())
 
         optimizer.zero_grad()
 
-        errors.backward()  # Change to errors_total
+        errors_total.backward()  # Change to errors_total
 
         optimizer.step()
         if i % 2 == 0:
-            print('Epoch: {}/{}, step: {}/{}, reconstruction error: {}, classification error: {}, total error: {}'.format(epoch, num_epochs, i, len(mnist_train) // batch_size, round(reconstruction_error.item(), 3), round(classification_error.item(), 3), round(errors_total.item(), 3)))
+            print('Epoch: {}/{}, step: {}/{}, reconstruction error: {}, classification error: {}, total error: {}'.format(epoch, num_epochs, i, len(mnist_train) // batch_size, round(reconstruction_error.item(), 3), round(mean_classification_error.item(), 3), round(errors_total.item(), 3)))
 
 torch.save(model.state_dict(), 'training.pt')
