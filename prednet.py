@@ -9,13 +9,14 @@ from debug import info
 
 
 class PredNet(nn.Module):
-    def __init__(self, R_channels, A_channels, output_mode='error'):
+    def __init__(self, R_channels, A_channels, output_mode='error', use_cuda=False):
         super(PredNet, self).__init__()
         self.r_channels = R_channels + (0, )  # for convenience
         self.a_channels = A_channels
         self.n_layers = len(R_channels)
         self.output_mode = output_mode
-        self.linear = nn.Linear(6144, 10)
+
+        self.use_cuda = use_cuda
 
         default_output_modes = ['prediction', 'error']
         assert output_mode in default_output_modes, 'Invalid output_mode: ' + str(output_mode)
@@ -31,12 +32,11 @@ class PredNet(nn.Module):
                 conv.add_module('satlu', SatLU())
             setattr(self, 'conv{}'.format(i), conv)
 
-
         self.upsample = nn.Upsample(scale_factor=2)
         self.maxpool = nn.MaxPool2d(kernel_size=2, stride=2)
 
-        # TODO: Find dimensions of E and change in_features
-        # self.linear = nn.Linear(in_features=192, out_features=10)
+        # Linear layer for classification
+        self.linear = nn.Linear(6144, 10)
 
         for l in range(self.n_layers - 1):
             update_A = nn.Sequential(nn.Conv2d(2* self.a_channels[l], self.a_channels[l+1], (3, 3), padding=1), self.maxpool)
@@ -57,10 +57,15 @@ class PredNet(nn.Module):
         w, h = input.size(-2), input.size(-1)
         batch_size = input.size(0)
 
-        # Add another linear layer with mnist dimensions (10) and use as classifier
         for l in range(self.n_layers):
-            E_seq[l] = Variable(torch.zeros(batch_size, 2*self.a_channels[l], w, h)).cpu()
-            R_seq[l] = Variable(torch.zeros(batch_size, self.r_channels[l], w, h)).cpu()
+            E_seq[l] = Variable(torch.zeros(batch_size, 2*self.a_channels[l], w, h))
+            R_seq[l] = Variable(torch.zeros(batch_size, self.r_channels[l], w, h))
+            if self.use_cuda:
+                E_seq[l] = E_seq[l].cuda()
+                R_seq[l] = R_seq[l].cuda()
+            else:
+                E_seq[l] = E_seq[l].cpu()
+                R_seq[l] = R_seq[l].cpu()
             w = w//2
             h = h//2
         time_steps = input.size(1)
@@ -100,8 +105,8 @@ class PredNet(nn.Module):
                 if l < self.n_layers - 1:
                     update_A = getattr(self, 'update_A{}'.format(l))
                     A = update_A(E)
-            # Avi
-            # TODO: Do flattening and pooling to reduce dimensionality of E to (1*10) vector
+
+            # Flatten reconstruction of each layer and express as 1D vector
             flattened = [torch.flatten(e) for e in E]
             classification = [self.linear(im) for im in flattened]
 
@@ -111,17 +116,9 @@ class PredNet(nn.Module):
                 total_error.append(mean_error)
 
         if self.output_mode == 'error':
-            return torch.stack(total_error, 2), classification # batch x n_layers x nt
+            return torch.stack(total_error, 2), classification  # batch x n_layers x nt
         elif self.output_mode == 'prediction':
             return frame_prediction
-
-
-
-       
-
-
-
-
 
 
 class SatLU(nn.Module):
