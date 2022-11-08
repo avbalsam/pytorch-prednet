@@ -1,5 +1,6 @@
 import os
 
+import hickle
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
@@ -56,8 +57,13 @@ def lr_scheduler(optimizer, epoch):
         return optimizer
 
 
+accuracy_over_epochs = list()
 for epoch in range(num_epochs):
     optimizer = lr_scheduler(optimizer, epoch)
+
+    total_guesses = 0
+    correct_guesses = 0
+
     for i, (inputs, labels) in enumerate(train_loader):
         # inputs = inputs.permute(0, 1, 4, 2, 3)  # batch x time_steps x channel x width x height
         if cuda_available:
@@ -66,6 +72,14 @@ for epoch in range(num_epochs):
             inputs = Variable(inputs.cpu())
 
         rec_error, classification = model(inputs)  # batch x n_layers x nt
+
+        # Update classification accuracy
+        for j in range(len(classification)):
+            c = classification[j].tolist()
+            _class = c.index(max(c))
+            total_guesses += 1
+            if _class == labels[j]:
+                correct_guesses += 1
 
         loc_batch = rec_error.size(0)
         rec_error = torch.mm(rec_error.view(-1, nt), time_loss_weights)  # batch*n_layers x 1
@@ -84,17 +98,21 @@ for epoch in range(num_epochs):
             class_error.append(classification_loss)
 
         mean_class_error = sum(class_error) / len(class_error)
-        errors_total = (0.8 * rec_error) + (0.2 * mean_class_error)
+        errors_total = (0.9 * rec_error) + (0.1 * mean_class_error)
 
         optimizer.zero_grad()
 
         errors_total.backward()
 
         optimizer.step()
-        if i % 2 == 0:
+        if i % 10 == 0:
             print('Epoch: {}/{}, step: {}/{}, reconstruction error: {}, classification error: {}, total error: {}'
                   .format(epoch, num_epochs, i, len(mnist_train) // batch_size, round(rec_error.item(), 3),
                           round(mean_class_error.item(), 3), round(errors_total.item(), 3)),
                   flush=True)
+    accuracy = total_guesses / correct_guesses
 
-torch.save(model.state_dict(), './training.pt')
+    accuracy_over_epochs.append(accuracy)
+
+hickle.dump(accuracy_over_epochs, "./accuracy_arr_unweighted.hkl")
+torch.save(model.state_dict(), './training_unweighted.pt')

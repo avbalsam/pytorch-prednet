@@ -19,8 +19,6 @@ date "+%y/%m/%d %H:%M:%S"
 source /om2/user/jangh/miniconda/etc/profile.d/conda.sh
 conda activate openmind
 python prednet/mnist_train.py
-# singularity exec --nv -B /om,/om2 /om2/user/xboix/singularity/xboix-tensorflow2.9b.simg \
-# python prednet/mnist_train.py \
 # --is_slurm=True \
 # --job=${SLURM_ARRAY_JOB_ID} \
 # --id=${SLURM_ARRAY_TASK_ID} \
