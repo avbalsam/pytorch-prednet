@@ -9,17 +9,13 @@ from debug import info
 
 
 class PredNet(nn.Module):
-    def __init__(self, R_channels, A_channels, output_mode='error', use_cuda=False):
+    def __init__(self, R_channels, A_channels, use_cuda=False):
         super(PredNet, self).__init__()
         self.r_channels = R_channels + (0, )  # for convenience
         self.a_channels = A_channels
         self.n_layers = len(R_channels)
-        self.output_mode = output_mode
 
         self.use_cuda = use_cuda
-
-        default_output_modes = ['prediction', 'error']
-        assert output_mode in default_output_modes, 'Invalid output_mode: ' + str(output_mode)
 
         for i in range(self.n_layers):
             cell = ConvLSTMCell(2 * self.a_channels[i] + self.r_channels[i+1],                                                                             self.r_channels[i],
@@ -73,7 +69,10 @@ class PredNet(nn.Module):
         
         for t in range(time_steps):
             A = input[:, t]
-            A = A.type(torch.FloatTensor)
+            if self.use_cuda:
+                A = A.type(torch.cuda.FloatTensor)
+            else:
+                A = A.type(torch.FloatTensor)
             
             for l in reversed(range(self.n_layers)):
                 cell = getattr(self, 'cell{}'.format(l))
@@ -110,15 +109,11 @@ class PredNet(nn.Module):
             flattened = [torch.flatten(e) for e in E]
             classification = [self.linear(im) for im in flattened]
 
-            if self.output_mode == 'error':
-                mean_error = torch.cat([torch.mean(e.view(e.size(0), -1), 1, keepdim=True) for e in E_seq], 1)
-                # batch x n_layers
-                total_error.append(mean_error)
+            mean_error = torch.cat([torch.mean(e.view(e.size(0), -1), 1, keepdim=True) for e in E_seq], 1)
+            # batch x n_layers
+            total_error.append(mean_error)
 
-        if self.output_mode == 'error':
-            return torch.stack(total_error, 2), classification  # batch x n_layers x nt
-        elif self.output_mode == 'prediction':
-            return frame_prediction
+        return torch.stack(total_error, 2), classification  # batch x n_layers x nt
 
 
 class SatLU(nn.Module):

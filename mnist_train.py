@@ -10,23 +10,12 @@ from prednet import PredNet
 
 from debug import info
 
-num_epochs = 150
+num_epochs = 10
 batch_size = 16
 A_channels = (3, 48, 96, 192)
 R_channels = (3, 48, 96, 192)
 lr = 0.0001  # if epoch < 75 else 0.0001
 nt = 3  # num of time steps
-
-layer_loss_weights = Variable(torch.FloatTensor([[1.], [0.], [0.], [0.]]).cpu())
-time_loss_weights = 1. / (nt - 1) * torch.ones(nt, 1)
-time_loss_weights[0] = 0
-time_loss_weights = Variable(time_loss_weights.cpu())
-
-mnist_train = MNIST_Frames(nt, train=True)
-mnist_val = MNIST_Frames(nt, train=False)
-
-train_loader = DataLoader(mnist_train, batch_size=batch_size, shuffle=True)
-val_loader = DataLoader(mnist_val, batch_size=batch_size, shuffle=True)
 
 if torch.cuda.is_available():
     print('Using GPU.')
@@ -34,7 +23,23 @@ if torch.cuda.is_available():
 else:
     cuda_available = False
 
-model = PredNet(R_channels, A_channels, output_mode='error', use_cuda=cuda_available)
+
+time_loss_weights = 1. / (nt - 1) * torch.ones(nt, 1)
+time_loss_weights[0] = 0
+
+if cuda_available:
+    layer_loss_weights = Variable(torch.FloatTensor([[1.], [0.], [0.], [0.]]).cuda())
+    time_loss_weights = Variable(time_loss_weights.cuda())
+else:
+    layer_loss_weights = Variable(torch.FloatTensor([[1.], [0.], [0.], [0.]]).cpu())
+    time_loss_weights = Variable(time_loss_weights.cpu())
+
+
+mnist_train = MNIST_Frames(nt, train=True, noise_type='gaussian', noise_intensity=0.1)
+
+train_loader = DataLoader(mnist_train, batch_size=batch_size, shuffle=True)
+
+model = PredNet(R_channels, A_channels, use_cuda=cuda_available)
 
 if cuda_available:
     model.cuda()
@@ -71,7 +76,11 @@ for epoch in range(num_epochs):
         label_arr = [[float(label == labels[i]) for label in range(10)] for i in range(16)]
         class_error = list()
         for c in range(len(classification)):
-            classification_loss = torch.nn.functional.cross_entropy(classification[c], torch.FloatTensor(label_arr[c]))
+            if cuda_available:
+                label_tensor = torch.cuda.FloatTensor(label_arr[c])
+            else:
+                label_tensor = torch.FloatTensor(label_arr[c])
+            classification_loss = torch.nn.functional.cross_entropy(classification[c], label_tensor)
             class_error.append(classification_loss)
 
         mean_class_error = sum(class_error) / len(class_error)
@@ -83,6 +92,9 @@ for epoch in range(num_epochs):
 
         optimizer.step()
         if i % 2 == 0:
-            print('Epoch: {}/{}, step: {}/{}, reconstruction error: {}, classification error: {}, total error: {}'.format(epoch, num_epochs, i, len(mnist_train) // batch_size, round(rec_error.item(), 3), round(mean_class_error.item(), 3), round(errors_total.item(), 3)))
+            print('Epoch: {}/{}, step: {}/{}, reconstruction error: {}, classification error: {}, total error: {}'
+                  .format(epoch, num_epochs, i, len(mnist_train) // batch_size, round(rec_error.item(), 3),
+                          round(mean_class_error.item(), 3), round(errors_total.item(), 3)),
+                  flush=True)
 
-torch.save(model.state_dict(), 'training.pt')
+torch.save(model.state_dict(), './training.pt')
