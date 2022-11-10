@@ -68,7 +68,9 @@ print(f"Epochs: {num_epochs}\n"
       f"Learning rate: {lr}\n"
       f"Time steps: {nt}\n"
       f"Reconstruction weight: {rec_weight}\n"
-      f"Classification weight: {class_weight}\n\n\n", flush=True)
+      f"Classification weight: {class_weight}\n"
+      f"Noise type: {noise_type}\n"
+      f"Noise intensity: {noise_intensity}\n\n\n", flush=True)
 
 time_loss_weights = 1. / (nt - 1) * torch.ones(nt, 1)
 time_loss_weights[0] = 0
@@ -80,7 +82,7 @@ else:
     layer_loss_weights = Variable(torch.FloatTensor([[1.], [0.], [0.], [0.]]).cpu())
     time_loss_weights = Variable(time_loss_weights.cpu())
 
-mnist_train = MNIST_Frames(nt, train=True, noise_type='gaussian', noise_intensity=0.0)
+mnist_train = MNIST_Frames(nt, train=True, noise_type=noise_type, noise_intensity=noise_intensity)
 
 train_loader = DataLoader(mnist_train, batch_size=batch_size, shuffle=True)
 

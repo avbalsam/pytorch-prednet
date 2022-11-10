@@ -38,11 +38,6 @@ done
 # echo "Classification weight: $class_weight";
 # echo "Reconstruction weight: $rec_weight";
 
-# module load openmind/singularity/3.4.1
-# module add openmind/cuda/11.3
-# module add openmind/cudnn/11.5-v8.3.3.40
-# source /home/jangh/.bashrc
-# conda activate openmind
 source /om2/user/jangh/miniconda/etc/profile.d/conda.sh
 conda activate openmind
 python mnist_train.py -e "$epochs" -t "$timesteps" -l "$learning_rate" -c "$class_weight" -r "$rec_weight" -n "$noise_amt"
