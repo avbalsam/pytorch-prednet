@@ -13,6 +13,8 @@ from mnist_data import MNIST_Frames
 from prednet import PredNet
 
 
+model_path = './prednet/training_really_unweighted.pt'
+
 batch_size = 16
 A_channels = (3, 48, 96, 192)
 R_channels = (3, 48, 96, 192)
@@ -33,9 +35,9 @@ else:
     cuda_available = False
 
 if cuda_available:
-    model.load_state_dict(torch.load('./training.pt', map_location=torch.device('cuda')))
+    model.load_state_dict(torch.load(model_path, map_location=torch.device('cuda')))
 else:
-    model.load_state_dict(torch.load('./training.pt', map_location=torch.device('cpu')))
+    model.load_state_dict(torch.load(model_path, map_location=torch.device('cpu')))
 
 
 correct_guesses = 0

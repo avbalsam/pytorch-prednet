@@ -3,6 +3,7 @@ import os
 import hickle
 import torch
 import torch.nn as nn
+from matplotlib import pyplot as plt
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
 
@@ -11,12 +12,51 @@ from prednet import PredNet
 
 from debug import info
 
-num_epochs = 10
+import sys
+import getopt
+
+noise_type = "gaussian"
+noise_intensity = 0.0
+
+# Weight to give to reconstruction and classification error when calculating total error
+rec_weight = 0.9
+class_weight = 0.1
+
+num_epochs = 50
 batch_size = 16
 A_channels = (3, 48, 96, 192)
 R_channels = (3, 48, 96, 192)
 lr = 0.0001  # if epoch < 75 else 0.0001
 nt = 3  # num of time steps
+
+# Parse command line arguments to get specifications for model
+arg_help = "{0} -e <num_epochs> -t <num_timesteps> -l <learning_rate> -c <classification_weight> -r <reconstruction_weight> -n <noise_amt>".format(
+    sys.argv[0])
+
+try:
+    opts, args = getopt.getopt(sys.argv[1:], "he:t:l:c:r:n:", ["help", "epochs=",
+                                                               "timesteps=", "learning_rate=", "class_weight=",
+                                                               "rec_weight=", "noise_amt="])
+except:
+    print(arg_help)
+    sys.exit(2)
+
+for opt, arg in opts:
+    if opt in ("-h", "--help"):
+        print(arg_help)  # print the help message
+        sys.exit(2)
+    elif opt in ("-e", "--epochs"):
+        num_epochs = int(arg)
+    elif opt in ("-t", "--timesteps"):
+        nt = int(arg)
+    elif opt in ("-l", "--learning_rate"):
+        lr = float(arg)
+    elif opt in ("-c", "--class_weight"):
+        class_weight = float(arg)
+    elif opt in ("-r", "--rec_weight"):
+        rec_weight = float(arg)
+    elif opt in ("-n", "--noise_amt"):
+        noise_intensity = float(arg)
 
 if torch.cuda.is_available():
     print('Using GPU.')
@@ -24,6 +64,11 @@ if torch.cuda.is_available():
 else:
     cuda_available = False
 
+print(f"Epochs: {num_epochs}\n"
+      f"Learning rate: {lr}\n"
+      f"Time steps: {nt}\n"
+      f"Reconstruction weight: {rec_weight}\n"
+      f"Classification weight: {class_weight}\n\n\n", flush=True)
 
 time_loss_weights = 1. / (nt - 1) * torch.ones(nt, 1)
 time_loss_weights[0] = 0
@@ -35,8 +80,7 @@ else:
     layer_loss_weights = Variable(torch.FloatTensor([[1.], [0.], [0.], [0.]]).cpu())
     time_loss_weights = Variable(time_loss_weights.cpu())
 
-
-mnist_train = MNIST_Frames(nt, train=True, noise_type='gaussian', noise_intensity=0.1)
+mnist_train = MNIST_Frames(nt, train=True, noise_type='gaussian', noise_intensity=0.0)
 
 train_loader = DataLoader(mnist_train, batch_size=batch_size, shuffle=True)
 
@@ -59,10 +103,10 @@ def lr_scheduler(optimizer, epoch):
 
 accuracy_over_epochs = list()
 for epoch in range(num_epochs):
-    optimizer = lr_scheduler(optimizer, epoch)
-
+    accuracy = 0
     total_guesses = 0
     correct_guesses = 0
+    optimizer = lr_scheduler(optimizer, epoch)
 
     for i, (inputs, labels) in enumerate(train_loader):
         # inputs = inputs.permute(0, 1, 4, 2, 3)  # batch x time_steps x channel x width x height
@@ -98,7 +142,7 @@ for epoch in range(num_epochs):
             class_error.append(classification_loss)
 
         mean_class_error = sum(class_error) / len(class_error)
-        errors_total = (0.9 * rec_error) + (0.1 * mean_class_error)
+        errors_total = (rec_weight * rec_error) + (class_weight * mean_class_error)
 
         optimizer.zero_grad()
 
@@ -107,12 +151,25 @@ for epoch in range(num_epochs):
         optimizer.step()
         if i % 10 == 0:
             print('Epoch: {}/{}, step: {}/{}, reconstruction error: {}, classification error: {}, total error: {}'
-                  .format(epoch, num_epochs, i, len(mnist_train) // batch_size, round(rec_error.item(), 3),
-                          round(mean_class_error.item(), 3), round(errors_total.item(), 3)),
+                  .format(epoch, num_epochs, i, len(mnist_train) // batch_size, round(rec_error.item(), 7),
+                          round(mean_class_error.item(), 7), round(errors_total.item(), 7)),
                   flush=True)
-    accuracy = total_guesses / correct_guesses
 
+    accuracy = correct_guesses / total_guesses
     accuracy_over_epochs.append(accuracy)
+    print('\n\n\n\nEpoch: {}/{}, Accuracy: {}%'
+          .format(epoch, num_epochs, round(accuracy * 100, 2)),
+          flush=True)
 
-hickle.dump(accuracy_over_epochs, "./accuracy_arr_unweighted.hkl")
-torch.save(model.state_dict(), './training_unweighted.pt')
+dir_name = f"model_{num_epochs}_{batch_size}_{lr}_{nt}_{class_weight}_{rec_weight}_{noise_type}_{noise_intensity}"
+
+if os.path.exists(f"./{dir_name}"):
+    print("Redundant model has not been saved.")
+else:
+    os.mkdir(f"./{dir_name}")
+
+torch.save(model.state_dict(),
+           f'./{dir_name}/model_{num_epochs}_{batch_size}_{lr}_{nt}_{class_weight}_{rec_weight}_{noise_type}_{noise_intensity}.pt')
+
+plt.plot(accuracy_over_epochs)
+plt.savefig(f"./{dir_name}/accuracy_plot.png")
