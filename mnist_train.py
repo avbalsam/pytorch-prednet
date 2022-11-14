@@ -72,14 +72,14 @@ print(f"Epochs: {num_epochs}\n"
       f"Noise type: {noise_type}\n"
       f"Noise intensity: {noise_intensity}\n\n\n", flush=True)
 
-time_loss_weights = 1. / (nt - 1) * torch.ones(nt, 1)
-time_loss_weights[0] = 0
+time_loss_weights = torch.ones(nt, 1)  # 1. / (nt - 1)
+# time_loss_weights[0] = 0
 
 if cuda_available:
-    layer_loss_weights = Variable(torch.FloatTensor([[1.], [0.], [0.], [0.]]).cuda())
+    layer_loss_weights = Variable(torch.FloatTensor([[1.], [1.], [1.], [1.]]).cuda())
     time_loss_weights = Variable(time_loss_weights.cuda())
 else:
-    layer_loss_weights = Variable(torch.FloatTensor([[1.], [0.], [0.], [0.]]).cpu())
+    layer_loss_weights = Variable(torch.FloatTensor([[1.], [1.], [1.], [1.]]).cpu())
     time_loss_weights = Variable(time_loss_weights.cpu())
 
 mnist_train = MNIST_Frames(nt, train=True, noise_type=noise_type, noise_intensity=noise_intensity)
@@ -117,7 +117,9 @@ for epoch in range(num_epochs):
         else:
             inputs = Variable(inputs.cpu())
 
-        rec_error, classification = model(inputs)  # batch x n_layers x nt
+        rec_error, classification_steps = model(inputs)  # batch x n_layers x nt
+
+        classification = sum(classification_steps) / len(classification_steps)
 
         # Update classification accuracy
         for j in range(len(classification)):

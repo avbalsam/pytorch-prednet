@@ -34,6 +34,8 @@ class PredNet(nn.Module):
         # Linear layer for classification
         self.linear = nn.Linear(6144, 10)
 
+        self.flatten = nn.Flatten()
+
         for l in range(self.n_layers - 1):
             update_A = nn.Sequential(nn.Conv2d(2* self.a_channels[l], self.a_channels[l+1], (3, 3), padding=1), self.maxpool)
             setattr(self, 'update_A{}'.format(l), update_A)
@@ -66,7 +68,8 @@ class PredNet(nn.Module):
             h = h//2
         time_steps = input.size(1)
         total_error = []
-        
+
+        classification_steps = list()
         for t in range(time_steps):
             A = input[:, t]
             if self.use_cuda:
@@ -106,14 +109,16 @@ class PredNet(nn.Module):
                     A = update_A(E)
 
             # Flatten reconstruction of each layer and express as 1D vector
-            flattened = [torch.flatten(e) for e in E]
-            classification = [self.linear(im) for im in flattened]
+            flattened = self.flatten(E)
+            classification = self.linear(flattened)
 
             mean_error = torch.cat([torch.mean(e.view(e.size(0), -1), 1, keepdim=True) for e in E_seq], 1)
             # batch x n_layers
             total_error.append(mean_error)
 
-        return torch.stack(total_error, 2), classification  # batch x n_layers x nt
+            classification_steps.append(classification)
+
+        return torch.stack(total_error, 2), classification_steps  # batch x n_layers x nt
 
 
 class SatLU(nn.Module):
