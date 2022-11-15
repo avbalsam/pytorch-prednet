@@ -12,6 +12,12 @@ cd /om2/user/avbalsam/prednet
 hostname
 date "+%y/%m/%d %H:%M:%S"
 
+version=1
+is_slurm=True
+model_name="prednet"
+data_name="mnist_frames"
+noise=0.0
+blur=0.0
 
 while getopts v:s:m:d:n:b: flag
 do
