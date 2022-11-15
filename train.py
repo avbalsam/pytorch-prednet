@@ -45,9 +45,9 @@ def get_accuracy(val_loader, model, device):
         for j in range(len(classification)):
             c = classification[j].tolist()
             _class = c.index(max(c))
-            print(
-                f"Image {i + j}; Correct label: {labels[j]}; Predicted: {_class}; Correct guesses: {correct_guesses}; "
-                f"Accuracy: {round(accuracy * 100, 3)}%")
+            # print(
+            #    f"Image {i + j}; Correct label: {labels[j]}; Predicted: {_class}; Correct guesses: {correct_guesses}; "
+            #    f"Accuracy: {round(accuracy * 100, 3)}%")
             total_guesses += 1
             if labels[j] == _class:
                 correct_guesses += 1
@@ -144,7 +144,8 @@ def torch_main(args):
                 total_guesses += 1
                 if _class == labels[j]:
                     correct_guesses += 1
-                print(f"Total guesses: {total_guesses}, Correct guesses: {correct_guesses}")
+                #
+                # print(f"Total guesses: {total_guesses}, Correct guesses: {correct_guesses}")
 
             optimizer.zero_grad()
 
