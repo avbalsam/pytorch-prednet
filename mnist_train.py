@@ -7,7 +7,7 @@ from matplotlib import pyplot as plt
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
 
-from mnist_data import MNIST_Frames
+from mnist_data_prednet import MNIST_Frames
 from prednet import PredNet
 
 from debug import info
@@ -121,7 +121,6 @@ for epoch in range(num_epochs):
 
         classification = sum(classification_steps) / len(classification_steps)
 
-        # Update classification accuracy
         for j in range(len(classification)):
             c = classification[j].tolist()
             _class = c.index(max(c))
@@ -153,6 +152,7 @@ for epoch in range(num_epochs):
         errors_total.backward()
 
         optimizer.step()
+
         if i % 10 == 0:
             print('Epoch: {}/{}, step: {}/{}, reconstruction error: {}, classification error: {}, total error: {}'
                   .format(epoch, num_epochs, i, len(mnist_train) // batch_size, round(rec_error.item(), 7),
