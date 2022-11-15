@@ -9,19 +9,13 @@ from debug import info
 
 
 class PredNet(nn.Module):
-    def __init__(self, R_channels, A_channels, use_cuda=False, nt=5, class_weight=0.9, rec_weight=0.1):
+    def __init__(self, R_channels, A_channels, device="cuda", nt=5, class_weight=0.9, rec_weight=0.1):
         super(PredNet, self).__init__()
         self.classification_steps = None
         self.reconstruction_error = None
 
-        self.time_loss_weights = torch.ones(nt, 1)
-        self.layer_loss_weights = torch.FloatTensor([[1.], [1.], [1.], [1.]])
-        if use_cuda:
-            self.layer_loss_weights = Variable(self.layer_loss_weights.cuda())
-            self.time_loss_weights = Variable(self.time_loss_weights.cuda())
-        else:
-            self.layer_loss_weights = Variable(self.layer_loss_weights.cpu())
-            self.time_loss_weights = Variable(self.time_loss_weights.cpu())
+        self.layer_loss_weights = Variable(torch.FloatTensor([[1.], [1.], [1.], [1.]]).to(device))
+        self.time_loss_weights = Variable(torch.ones(nt, 1).to(device))
 
         self.nt = nt
         self.class_weight = class_weight
@@ -31,7 +25,7 @@ class PredNet(nn.Module):
         self.a_channels = A_channels
         self.n_layers = len(R_channels)
 
-        self.use_cuda = use_cuda
+        self.device = device
 
         for i in range(self.n_layers):
             cell = ConvLSTMCell(2 * self.a_channels[i] + self.r_channels[i+1],                                                                             self.r_channels[i],
@@ -72,14 +66,8 @@ class PredNet(nn.Module):
         batch_size = input.size(0)
 
         for l in range(self.n_layers):
-            E_seq[l] = Variable(torch.zeros(batch_size, 2*self.a_channels[l], w, h))
-            R_seq[l] = Variable(torch.zeros(batch_size, self.r_channels[l], w, h))
-            if self.use_cuda:
-                E_seq[l] = E_seq[l].cuda()
-                R_seq[l] = R_seq[l].cuda()
-            else:
-                E_seq[l] = E_seq[l].cpu()
-                R_seq[l] = R_seq[l].cpu()
+            E_seq[l] = Variable(torch.zeros(batch_size, 2 * self.a_channels[l], w, h).to(self.device))
+            R_seq[l] = Variable(torch.zeros(batch_size, self.r_channels[l], w, h).to(self.device))
             w = w//2
             h = h//2
         time_steps = input.size(1)
@@ -88,10 +76,7 @@ class PredNet(nn.Module):
         classification_steps = list()
         for t in range(time_steps):
             A = input[:, t]
-            if self.use_cuda:
-                A = A.type(torch.cuda.FloatTensor)
-            else:
-                A = A.type(torch.FloatTensor)
+            A = A.to(self.device)
             
             for l in reversed(range(self.n_layers)):
                 cell = getattr(self, 'cell{}'.format(l))
@@ -152,10 +137,7 @@ class PredNet(nn.Module):
         label_arr = [[float(label == labels[i]) for label in range(10)] for i in range(16)]
         class_error = list()
         for c in range(len(classification)):
-            if self.use_cuda:
-                label_tensor = torch.cuda.FloatTensor(label_arr[c])
-            else:
-                label_tensor = torch.FloatTensor(label_arr[c])
+            label_tensor = torch.FloatTensor(label_arr[c]).to(self.device)
             classification_loss = torch.nn.functional.cross_entropy(classification[c], label_tensor)
             class_error.append(classification_loss)
 
