@@ -1,4 +1,5 @@
 import argparse
+import csv
 import os
 
 import torch
@@ -121,6 +122,7 @@ def torch_main(args):
 
     training_acc_epochs = list()
     val_acc_epochs = list()
+    loss_epochs = list()
 
     for epoch in range(num_epochs):
         accuracy = 0
@@ -158,10 +160,19 @@ def torch_main(args):
                       .format(epoch, num_epochs, i, len(train_dataset) // batch_size, round(loss.item(), 7)),
                       flush=True)
 
+        loss_epochs.append(loss.item())
         train_accuracy = correct_guesses / total_guesses
         training_acc_epochs.append(train_accuracy)
         val_accuracy = get_accuracy(val_loader, model, cuda_available)
         val_acc_epochs.append(val_accuracy)
+
+        with open(f'./{dir_name}/log.csv', 'w') as f:
+
+            # using csv.writer method from CSV package
+            write = csv.writer(f)
+            write.writerows(["Training accuracy", "Validation accuracy", "Total loss"])
+            rows = [training_acc_epochs, val_acc_epochs, loss_epochs]
+            write.writerows(rows)
 
         print('\n\n\n\nEpoch: {}/{}, Train accuracy: {}%, Validation accuracy: {}%'
               .format(epoch, num_epochs, round(train_accuracy * 100, 3), round(val_accuracy * 100, 3)),
