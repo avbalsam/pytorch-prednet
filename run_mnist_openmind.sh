@@ -28,7 +28,7 @@ done
 
 source /om2/user/jangh/miniconda/etc/profile.d/conda.sh
 conda activate openmind
-python mnist_train.py -v "$version" -s "$is_slurm" -m "$model_name" -d "$data_name" -n "$noise" -b "$blur"
+python train.py -v "$version" -s "$is_slurm" -m "$model_name" -d "$data_name" -n "$noise" -b "$blur"
 # --is_slurm=True \
 # --job=${SLURM_ARRAY_JOB_ID} \
 # --id=${SLURM_ARRAY_TASK_ID} \
