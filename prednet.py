@@ -9,8 +9,24 @@ from debug import info
 
 
 class PredNet(nn.Module):
-    def __init__(self, R_channels, A_channels, use_cuda=False):
+    def __init__(self, R_channels, A_channels, use_cuda=False, nt=5, class_weight=0.9, rec_weight=0.1):
         super(PredNet, self).__init__()
+        self.classification_steps = None
+        self.reconstruction_error = None
+
+        self.time_loss_weights = torch.ones(nt, 1)
+        self.layer_loss_weights = torch.FloatTensor([[1.], [1.], [1.], [1.]])
+        if use_cuda:
+            self.layer_loss_weights = Variable(self.layer_loss_weights.cuda())
+            self.time_loss_weights = Variable(self.time_loss_weights.cuda())
+        else:
+            self.layer_loss_weights = Variable(self.layer_loss_weights.cpu())
+            self.time_loss_weights = Variable(self.time_loss_weights.cpu())
+
+        self.nt = nt
+        self.class_weight = class_weight
+        self.rec_weight = rec_weight
+
         self.r_channels = R_channels + (0, )  # for convenience
         self.a_channels = A_channels
         self.n_layers = len(R_channels)
@@ -118,7 +134,35 @@ class PredNet(nn.Module):
 
             classification_steps.append(classification)
 
-        return torch.stack(total_error, 2), classification_steps  # batch x n_layers x nt
+        reconstruction_error = torch.stack(total_error, 2) # batch x n_layers x nt
+        # return torch.stack(total_error, 2), classification_steps  # batch x n_layers x nt
+
+        classification = sum(classification_steps) / len(classification_steps)
+
+        loc_batch = reconstruction_error.size(0)
+        rec_error = torch.mm(reconstruction_error.view(-1, self.nt), self.time_loss_weights)  # batch*n_layers x 1
+        rec_error = torch.mm(rec_error.view(loc_batch, -1), self.layer_loss_weights)
+        rec_error = torch.mean(rec_error)
+
+        return rec_error, classification
+
+    def calculate_loss(self, model_output, labels):
+        rec_error, classification = model_output
+        # Create a tensor of label arrays to compare with classification tensor
+        label_arr = [[float(label == labels[i]) for label in range(10)] for i in range(16)]
+        class_error = list()
+        for c in range(len(classification)):
+            if self.use_cuda:
+                label_tensor = torch.cuda.FloatTensor(label_arr[c])
+            else:
+                label_tensor = torch.FloatTensor(label_arr[c])
+            classification_loss = torch.nn.functional.cross_entropy(classification[c], label_tensor)
+            class_error.append(classification_loss)
+
+        mean_class_error = sum(class_error) / len(class_error)
+        errors_total = (self.rec_weight * rec_error) + (self.class_weight * mean_class_error)
+
+        return errors_total
 
 
 class SatLU(nn.Module):
