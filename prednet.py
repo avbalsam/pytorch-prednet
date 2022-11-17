@@ -9,7 +9,7 @@ from debug import info
 
 
 class PredNet(nn.Module):
-    def __init__(self, R_channels, A_channels, device="cuda", nt=5, class_weight=0.9, rec_weight=0.1):
+    def __init__(self, R_channels, A_channels, device, nt=5, class_weight=0.9, rec_weight=0.1):
         super(PredNet, self).__init__()
         self.classification_steps = None
         self.reconstruction_error = None
@@ -57,7 +57,7 @@ class PredNet(nn.Module):
             cell = getattr(self, 'cell{}'.format(l))
             cell.reset_parameters()
 
-    def forward(self, input):
+    def forward(self, input, timestep=None):
         R_seq = [None] * self.n_layers
         H_seq = [None] * self.n_layers
         E_seq = [None] * self.n_layers
@@ -99,8 +99,6 @@ class PredNet(nn.Module):
             for l in range(self.n_layers):
                 conv = getattr(self, 'conv{}'.format(l))
                 A_hat = conv(R_seq[l])
-                if l == 0:
-                    frame_prediction = A_hat
                 pos = F.relu(A_hat - A)
                 neg = F.relu(A - A_hat)
                 E = torch.cat([pos, neg],1)
@@ -122,7 +120,10 @@ class PredNet(nn.Module):
         reconstruction_error = torch.stack(total_error, 2) # batch x n_layers x nt
         # return torch.stack(total_error, 2), classification_steps  # batch x n_layers x nt
 
-        classification = sum(classification_steps) / len(classification_steps)
+        if timestep is None:
+            classification = sum(classification_steps) / len(classification_steps)
+        else:
+            classification = classification_steps[timestep]
 
         loc_batch = reconstruction_error.size(0)
         rec_error = torch.mm(reconstruction_error.view(-1, self.nt), self.time_loss_weights)  # batch*n_layers x 1
