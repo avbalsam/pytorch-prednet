@@ -72,6 +72,25 @@ def plot_timesteps(plot_type, device):
     )
 
 
+def plot_noise_levels(model, device, noise_type='gaussian', noise_levels=None, timestep=None):
+    accuracy_over_noise = ["Noise level", "Accuracy"]
+    if noise_levels is None:
+        noise_levels = [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0]
+    for level in noise_levels:
+        mnist_noise = MNIST_Frames(nt, train=False, noise_type=noise_type, noise_intensity=level)
+        val_loader = DataLoader(mnist_noise, batch_size=batch_size, shuffle=True)
+        if timestep is None:
+            accuracy_over_noise.append([level, get_accuracy(val_loader, model, device)])
+        else:
+            accuracy_over_noise.append([level, get_accuracy(val_loader, model, device, timestep)])
+
+    data = pd.DataFrame(accuracy_over_noise[1:], columns=accuracy_over_noise[0])
+    return sns.relplot(
+        data=data, kind="line",
+        x="Noise level", y="Accuracy"
+    )
+
+
 if __name__ == "__main__":
     args = parse_args()
 
@@ -96,6 +115,8 @@ if __name__ == "__main__":
     plot_epochs('loss').savefig(f"{dir_name}/loss_plot.png")
 
     plot_epochs('accuracy').savefig(f"{dir_name}/accuracy_plot.png")
+
+    plot_noise_levels(model, device)
 
     plot_timesteps('timestep accuracy', device).savefig(f"{dir_name}/timestep_accuracy_plot.png")
 
