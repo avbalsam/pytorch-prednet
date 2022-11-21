@@ -12,7 +12,9 @@ from torch.utils.data import DataLoader
 
 from mnist_data_prednet import MNIST_Frames
 from prednet import PredNet
-from train import get_accuracy, generate_model_name
+from controls.prednet_additive import PredNetAdditive
+from controls.prednet_feedforward import PredNetFF
+from train import get_accuracy
 
 
 def parse_args():
@@ -72,23 +74,20 @@ def plot_timesteps(plot_type, device):
     )
 
 
-def plot_noise_levels(model, device, noise_type='gaussian', noise_levels=None, timestep=None):
-    #TODO: Add another for loop to iterate over nt and create a line for each timestep showing how it performs on different levels of noise
-    accuracy_over_noise = [["Noise level", "Accuracy"]]
+def plot_noise_levels(model, device, nt, noise_type='gaussian', noise_levels=None):
+    accuracy_over_noise = [["Noise level", "Accuracy", "Timestep"]]
     if noise_levels is None:
         noise_levels = [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0]
-    for level in noise_levels:
-        mnist_noise = MNIST_Frames(nt, train=False, noise_type=noise_type, noise_intensity=level)
-        val_loader = DataLoader(mnist_noise, batch_size=batch_size, shuffle=True)
-        if timestep is None:
-            accuracy_over_noise.append([level, get_accuracy(val_loader, model, device)])
-        else:
-            accuracy_over_noise.append([level, get_accuracy(val_loader, model, device, timestep)])
+    for timestep in range(nt):
+        for level in noise_levels:
+            mnist_noise = MNIST_Frames(nt, train=False, noise_type=noise_type, noise_intensity=level)
+            val_loader = DataLoader(mnist_noise, batch_size=batch_size, shuffle=True)
+            accuracy_over_noise.append([level, get_accuracy(val_loader, model, device, timestep), timestep])
 
     data = pd.DataFrame(accuracy_over_noise[1:], columns=accuracy_over_noise[0])
     return sns.relplot(
         data=data, kind="line",
-        x="Noise level", y="Accuracy"
+        x="Noise level", y="Accuracy", hue="Timestep"
     )
 
 
@@ -97,9 +96,8 @@ if __name__ == "__main__":
 
     plot_types = ['loss', 'accuracy', 'timestep accuracy']
 
-    dir_name = './model_5_gaussian_0.0' if args.dir_name == '' else args.dir_name
-
     model_name = 'model.pt'
+    models = [PredNet, PredNetAdditive, PredNetFF]
 
     batch_size = 16
     A_channels = (3, 48, 96, 192)
@@ -107,18 +105,25 @@ if __name__ == "__main__":
 
     nt = 5
 
-    mnist_test = MNIST_Frames(nt, train=False)
-    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    test_loader = DataLoader(mnist_test, batch_size=batch_size, shuffle=True)
-    model = PredNet(R_channels, A_channels, device, nt).to(device)
-    model.load_state_dict(torch.load(f"{dir_name}/{model_name}", map_location=device))
+    for model in models:
+        mnist_test = MNIST_Frames(nt, train=False)
+        device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+        test_loader = DataLoader(mnist_test, batch_size=batch_size, shuffle=True)
+        model_to_plot = model(R_channels, A_channels, device, nt).to(device)
 
-    plot_epochs('loss').savefig(f"{dir_name}/loss_plot.png")
+        dir_name = model_to_plot.get_name() if args.dir_name == '' else args.dir_name
 
-    plot_epochs('accuracy').savefig(f"{dir_name}/accuracy_plot.png")
+        print(f"Plotting data for model {dir_name}...")
+        model.load_state_dict(torch.load(f"{dir_name}/{model_name}", map_location=device))
 
-    plot_noise_levels(model, device)
+        print("Plotting loss and accuracy over epochs...")
+        plot_epochs('loss').savefig(f"{dir_name}/loss_plot.png")
+        plot_epochs('accuracy').savefig(f"{dir_name}/accuracy_plot.png")
 
-    plot_timesteps('timestep accuracy', device).savefig(f"{dir_name}/timestep_accuracy_plot.png")
+        print("Plotting accuracy over noise levels...")
+        plot_noise_levels(model, device)
 
-    plt.show()
+        print("Plotting accuracy over timestep...")
+        plot_timesteps('timestep accuracy', device).savefig(f"{dir_name}/timestep_accuracy_plot.png")
+
+        print("Finished plotting!")
