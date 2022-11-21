@@ -13,7 +13,7 @@ class PredNetAdditive(nn.Module):
     Adds errors between layers instead of subtracting them, and does not take rec error into account.
     Otherwise exactly the same as regular Prednet.
     """
-    def __init__(self, R_channels, A_channels, device, nt=5):
+    def __init__(self, R_channels, A_channels, device, nt=5, rec_weight=0.9, class_weight=0.1):
         super(PredNetAdditive, self).__init__()
         self.classification_steps = None
         self.reconstruction_error = None
@@ -26,6 +26,9 @@ class PredNetAdditive(nn.Module):
         self.r_channels = R_channels + (0, )  # for convenience
         self.a_channels = A_channels
         self.n_layers = len(R_channels)
+
+        self.class_weight = class_weight
+        self.rec_weight = rec_weight
 
         self.device = device
 
@@ -154,8 +157,9 @@ class PredNetAdditive(nn.Module):
             class_error.append(classification_loss)
 
         mean_class_error = sum(class_error) / len(class_error)
+        errors_total = (self.rec_weight * rec_error) + (self.class_weight * mean_class_error)
 
-        return mean_class_error
+        return errors_total
 
 
 class SatLU(nn.Module):

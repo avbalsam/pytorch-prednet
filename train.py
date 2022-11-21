@@ -102,7 +102,8 @@ def torch_main(args):
             model = PredNet(R_channels=R_channels, A_channels=A_channels, device=device, nt=nt,
                             class_weight=1, rec_weight=0)
         elif args.model_name == 'prednet_additive':
-            model = PredNetAdditive(R_channels=R_channels, A_channels=A_channels, device=device, nt=nt)
+            model = PredNetAdditive(R_channels=R_channels, A_channels=A_channels, device=device, nt=nt,
+                                    class_weight=0.1, rec_weight=0.9)
         elif args.model_name == 'prednet_feedforward':
             model = PredNetFF(R_channels=R_channels, A_channels=A_channels, device=device, nt=nt)
 
