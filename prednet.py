@@ -5,9 +5,6 @@ from convlstmcell import ConvLSTMCell
 from torch.autograd import Variable
 
 
-from debug import info
-
-
 class PredNet(nn.Module):
     def __init__(self, R_channels, A_channels, device, nt=5, class_weight=0.1, rec_weight=0.9):
         super(PredNet, self).__init__()
@@ -52,6 +49,9 @@ class PredNet(nn.Module):
 
         self.reset_parameters()
 
+    def get_name(self):
+        return f"prednet_{self.nt}_c{self.class_weight}_r{self.rec_weight}"
+
     def reset_parameters(self):
         for l in range(self.n_layers):
             cell = getattr(self, 'cell{}'.format(l))
@@ -78,7 +78,6 @@ class PredNet(nn.Module):
             A = input[:, t]
             A = A.to(self.device)
 
-            """
             for l in reversed(range(self.n_layers)):
                 cell = getattr(self, 'cell{}'.format(l))
                 if t == 0:
@@ -96,9 +95,7 @@ class PredNet(nn.Module):
                     R, hx = cell(tmp, hx)
                 R_seq[l] = R
                 H_seq[l] = hx
-            """
 
-            """
             for l in range(self.n_layers):
                 conv = getattr(self, 'conv{}'.format(l))
 
@@ -106,26 +103,15 @@ class PredNet(nn.Module):
                 pos = F.relu(A_hat - A)
                 neg = F.relu(A - A_hat)
 
-                # TODO: For additive network, use these to add errors
-                # pos = F.relu(A_hat + A)
-                # neg = F.relu(-A_hat - A)
-
                 E = torch.cat([pos, neg],1)
                 E_seq[l] = E
 
                 if l < self.n_layers - 1:
                     update_A = getattr(self, 'update_A{}'.format(l))
                     A = update_A(E)
-            """
-            for l in range(self.n_layers):
-                conv = getattr(self, 'conv{}'.format(l))
-                if l < self.n_layers - 1:
-                    update_A = getattr(self, 'update_A{}'.format(l))
-                    A = update_A(A)
 
             # Flatten reconstruction of each layer and express as 1D vector
-            # flattened = self.flatten(E)
-            flattened = self.flatten(A)
+            flattened = self.flatten(E)
             classification = self.linear(flattened)
 
             mean_error = torch.cat([torch.mean(e.view(e.size(0), -1), 1, keepdim=True) for e in E_seq], 1)
@@ -163,8 +149,7 @@ class PredNet(nn.Module):
         mean_class_error = sum(class_error) / len(class_error)
         errors_total = (self.rec_weight * rec_error) + (self.class_weight * mean_class_error)
 
-        # return errors_total
-        return mean_class_error
+        return errors_total
 
 
 class SatLU(nn.Module):
