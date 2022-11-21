@@ -87,6 +87,8 @@ def torch_main(args):
         A_channels = (3, 48, 96, 192)
         R_channels = (3, 48, 96, 192)
         lr = 0.0001  # if epoch < 75 else 0.0001
+
+        # For exclusively feedforward network, use nt=1
         nt = 5  # num of time steps
 
         noise_intensity = args.noise
@@ -159,8 +161,9 @@ def torch_main(args):
             optimizer.step()
 
             if i % 10 == 0:
-                print('Epoch: {}/{}, Step: {}/{}, Loss: {}'
-                      .format(epoch, num_epochs, i, len(train_dataset) // batch_size, round(loss.item(), 7)),
+                print('Epoch: {}/{}, Step: {}/{}, Rec Loss: {}, Class Loss: {}'
+                      .format(epoch, num_epochs, i, len(train_dataset) // batch_size, round(rec_error.item(), 7),
+                      round(classification_error.item(), 7)),
                       flush=True)
 
         # Add loss and accuracy from this epoch to list

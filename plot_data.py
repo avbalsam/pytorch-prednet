@@ -73,7 +73,8 @@ def plot_timesteps(plot_type, device):
 
 
 def plot_noise_levels(model, device, noise_type='gaussian', noise_levels=None, timestep=None):
-    accuracy_over_noise = ["Noise level", "Accuracy"]
+    #TODO: Add another for loop to iterate over nt and create a line for each timestep showing how it performs on different levels of noise
+    accuracy_over_noise = [["Noise level", "Accuracy"]]
     if noise_levels is None:
         noise_levels = [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0]
     for level in noise_levels:
