@@ -13,7 +13,6 @@ hostname
 date "+%y/%m/%d %H:%M:%S"
 
 version=1
-is_slurm=True
 model_name="prednet"
 data_name="mnist_frames"
 noise=0.0
@@ -23,7 +22,6 @@ while getopts v:s:m:d:n:b: flag
 do
     case "${flag}" in
         v) version=${OPTARG};;
-        s) is_slurm=${OPTARG};;
         m) model_name=${OPTARG};;
         d) data_name=${OPTARG};;
         n) noise=${OPTARG};;
@@ -34,7 +32,7 @@ done
 
 source /om2/user/jangh/miniconda/etc/profile.d/conda.sh
 conda activate openmind
-python train.py -v "$version" -s "$is_slurm" -m "$model_name" -d "$data_name" -n "$noise" -b "$blur"
+python train.py -v "$version" -m "$model_name" -d "$data_name" -n "$noise" -b "$blur"
 # --is_slurm=True \
 # --job=${SLURM_ARRAY_JOB_ID} \
 # --id=${SLURM_ARRAY_TASK_ID} \
