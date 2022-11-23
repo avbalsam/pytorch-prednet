@@ -6,64 +6,19 @@ from torch.autograd import Variable
 
 
 from debug import info
+from prednet import PredNet
 
 
-class PredNetAdditive(nn.Module):
+class PredNetAdditive(PredNet):
     """
     Adds errors between layers instead of subtracting them, and does not take rec error into account.
     Otherwise exactly the same as regular Prednet.
     """
-    def __init__(self, R_channels, A_channels, device, nt=5, rec_weight=0.9, class_weight=0.1):
-        super(PredNetAdditive, self).__init__()
-        self.classification_steps = None
-        self.reconstruction_error = None
-
-        self.layer_loss_weights = Variable(torch.FloatTensor([[1.], [1.], [1.], [1.]]).to(device))
-        self.time_loss_weights = Variable(torch.ones(nt, 1).to(device))
-
-        self.nt = nt
-
-        self.r_channels = R_channels + (0, )  # for convenience
-        self.a_channels = A_channels
-        self.n_layers = len(R_channels)
-
-        self.class_weight = class_weight
-        self.rec_weight = rec_weight
-
-        self.device = device
-
-        for i in range(self.n_layers):
-            cell = ConvLSTMCell(2 * self.a_channels[i] + self.r_channels[i+1],                                                                             self.r_channels[i],
-                                (3, 3))
-            setattr(self, 'cell{}'.format(i), cell)
-
-        for i in range(self.n_layers):
-            conv = nn.Sequential(nn.Conv2d(self.r_channels[i], self.a_channels[i], 3, padding=1), nn.ReLU())
-            if i == 0:
-                conv.add_module('satlu', SatLU())
-            setattr(self, 'conv{}'.format(i), conv)
-
-        self.upsample = nn.Upsample(scale_factor=2)
-        self.maxpool = nn.MaxPool2d(kernel_size=2, stride=2)
-
-        # Linear layer for classification
-        self.linear = nn.Linear(6144, 10)
-
-        self.flatten = nn.Flatten()
-
-        for l in range(self.n_layers - 1):
-            update_A = nn.Sequential(nn.Conv2d(2* self.a_channels[l], self.a_channels[l+1], (3, 3), padding=1), self.maxpool)
-            setattr(self, 'update_A{}'.format(l), update_A)
-
-        self.reset_parameters()
+    def __init__(self, R_channels, A_channels, nt=5, class_weight=1, rec_weight=0):
+        super().__init__(R_channels, A_channels, nt, class_weight=class_weight, rec_weight=rec_weight)
 
     def get_name(self):
-        return f"prednet_additive_{self.nt}"
-
-    def reset_parameters(self):
-        for l in range(self.n_layers):
-            cell = getattr(self, 'cell{}'.format(l))
-            cell.reset_parameters()
+        return f"{super().get_name()}_additive"
 
     def forward(self, input, timestep=None):
         R_seq = [None] * self.n_layers
@@ -144,39 +99,3 @@ class PredNetAdditive(nn.Module):
         rec_error = torch.mean(rec_error)
 
         return rec_error, classification
-
-    def calculate_loss(self, model_output, labels):
-        rec_error, classification = model_output
-
-        # Create a tensor of label arrays to compare with classification tensor
-        label_arr = [[float(label == labels[i]) for label in range(10)] for i in range(16)]
-        class_error = list()
-        for c in range(len(classification)):
-            label_tensor = torch.FloatTensor(label_arr[c]).to(self.device)
-            classification_loss = torch.nn.functional.cross_entropy(classification[c], label_tensor)
-            class_error.append(classification_loss)
-
-        mean_class_error = sum(class_error) / len(class_error)
-        errors_total = (self.rec_weight * rec_error) + (self.class_weight * mean_class_error)
-
-        return errors_total
-
-
-class SatLU(nn.Module):
-
-    def __init__(self, lower=0, upper=255, inplace=False):
-        super(SatLU, self).__init__()
-        self.lower = lower
-        self.upper = upper
-        self.inplace = inplace
-
-    def forward(self, input):
-        return F.hardtanh(input, self.lower, self.upper, self.inplace)
-
-
-    def __repr__(self):
-        inplace_str = ', inplace' if self.inplace else ''
-        return self.__class__.__name__ + ' ('\
-            + 'min_val=' + str(self.lower) \
-	        + ', max_val=' + str(self.upper) \
-	        + inplace_str + ')'

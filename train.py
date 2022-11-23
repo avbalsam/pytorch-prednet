@@ -33,7 +33,9 @@ def parse_args():
     return args
 
 
-def get_accuracy(val_loader, model, device, timestep=None):
+def get_accuracy(val_loader, model, timestep=None):
+    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+
     correct_guesses = 0
     total_guesses = 0
     accuracy = 0
@@ -96,14 +98,14 @@ def torch_main(args):
               f"Noise intensity: {noise_intensity}\n\n\n", flush=True)
 
         if args.model_name == 'prednet':
-            model = PredNet(R_channels=R_channels, A_channels=A_channels, device=device, nt=nt,
+            model = PredNet(R_channels=R_channels, A_channels=A_channels, nt=nt,
                             class_weight=0.1, rec_weight=0.9)
         elif args.model_name == 'prednet_norec':
-            model = PredNet(R_channels=R_channels, A_channels=A_channels, device=device, nt=nt,
+            model = PredNet(R_channels=R_channels, A_channels=A_channels, nt=nt,
                             class_weight=1, rec_weight=0)
         elif args.model_name == 'prednet_additive':
-            model = PredNetAdditive(R_channels=R_channels, A_channels=A_channels, device=device, nt=nt,
-                                    class_weight=0.1, rec_weight=0.9)
+            model = PredNetAdditive(R_channels=R_channels, A_channels=A_channels, nt=nt,
+                                    class_weight=1, rec_weight=0)
         elif args.model_name == 'prednet_feedforward':
             model = PredNetFF(R_channels=R_channels, A_channels=A_channels, device=device, nt=nt)
 
@@ -171,7 +173,7 @@ def torch_main(args):
         rec_error_epochs.append(rec_error.item())
         train_accuracy = correct_guesses / total_guesses
         training_acc_epochs.append(train_accuracy)
-        val_accuracy = get_accuracy(val_loader, model, device)
+        val_accuracy = get_accuracy(val_loader, model)
         val_acc_epochs.append(val_accuracy)
 
         if not os.path.exists(f"./{dir_name}"):

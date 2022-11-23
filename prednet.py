@@ -6,13 +6,15 @@ from torch.autograd import Variable
 
 
 class PredNet(nn.Module):
-    def __init__(self, R_channels, A_channels, device, nt=5, class_weight=0.1, rec_weight=0.9):
+    def __init__(self, R_channels, A_channels, nt=5, class_weight=0.1, rec_weight=0.9):
         super(PredNet, self).__init__()
         self.classification_steps = None
         self.reconstruction_error = None
 
-        self.layer_loss_weights = Variable(torch.FloatTensor([[1.], [1.], [1.], [1.]]).to(device))
-        self.time_loss_weights = Variable(torch.ones(nt, 1).to(device))
+        self.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+
+        self.layer_loss_weights = Variable(torch.FloatTensor([[1.], [1.], [1.], [1.]]).to(self.device))
+        self.time_loss_weights = Variable(torch.ones(nt, 1).to(self.device))
 
         self.nt = nt
         self.class_weight = class_weight
@@ -21,8 +23,6 @@ class PredNet(nn.Module):
         self.r_channels = R_channels + (0, )  # for convenience
         self.a_channels = A_channels
         self.n_layers = len(R_channels)
-
-        self.device = device
 
         for i in range(self.n_layers):
             cell = ConvLSTMCell(2 * self.a_channels[i] + self.r_channels[i+1],                                                                             self.r_channels[i],
