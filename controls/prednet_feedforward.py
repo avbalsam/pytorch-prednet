@@ -6,52 +6,23 @@ from torch.autograd import Variable
 
 
 from debug import info
+from prednet import PredNet
 
 
-class PredNetFF(nn.Module):
-    def __init__(self, R_channels, A_channels, device, nt=5):
-        super(PredNetFF, self).__init__()
-        self.classification_steps = None
-        self.reconstruction_error = None
-
-        self.layer_loss_weights = Variable(torch.FloatTensor([[1.], [1.], [1.], [1.]]).to(device))
-        self.time_loss_weights = Variable(torch.ones(nt, 1).to(device))
-
-        self.nt = nt
-
-        self.r_channels = R_channels + (0, )  # for convenience
-        self.a_channels = A_channels
-        self.n_layers = len(R_channels)
-
-        self.device = device
-
-        for i in range(self.n_layers):
-            cell = ConvLSTMCell(2 * self.a_channels[i] + self.r_channels[i+1],                                                                             self.r_channels[i],
-                                (3, 3))
-            setattr(self, 'cell{}'.format(i), cell)
-
-        for i in range(self.n_layers):
-            conv = nn.Sequential(nn.Conv2d(self.r_channels[i], self.a_channels[i], 3, padding=1), nn.ReLU())
-            if i == 0:
-                conv.add_module('satlu', SatLU())
-            setattr(self, 'conv{}'.format(i), conv)
-
-        self.upsample = nn.Upsample(scale_factor=2)
-        self.maxpool = nn.MaxPool2d(kernel_size=2, stride=2)
+class PredNetFF(PredNet):
+    def __init__(self, R_channels, A_channels, nt=5):
+        super().__init__(R_channels, A_channels, nt, class_weight=1, rec_weight=0)
 
         # Linear layer for classification
-        self.linear = nn.Linear(6144, 10)
+        self.linear = nn.Linear(3072, 10)
 
-        self.flatten = nn.Flatten()
-
+        # Use half the number of channels as regular prednet
         for l in range(self.n_layers - 1):
-            update_A = nn.Sequential(nn.Conv2d(2* self.a_channels[l], self.a_channels[l+1], (3, 3), padding=1), self.maxpool)
+            update_A = nn.Sequential(nn.Conv2d(self.a_channels[l], self.a_channels[l+1], (3, 3), padding=1), self.maxpool)
             setattr(self, 'update_A{}'.format(l), update_A)
 
-        self.reset_parameters()
-
     def get_name(self):
-        return f"prednet_feedforward_{self.nt}"
+        return f"{super().get_name()}_feedforward"
 
     def reset_parameters(self):
         for l in range(self.n_layers):
@@ -59,8 +30,6 @@ class PredNetFF(nn.Module):
             cell.reset_parameters()
 
     def forward(self, input, timestep=None):
-        R_seq = [None] * self.n_layers
-        H_seq = [None] * self.n_layers
         E_seq = [None] * self.n_layers
 
         w, h = input.size(-2), input.size(-1)
@@ -68,7 +37,6 @@ class PredNetFF(nn.Module):
 
         for l in range(self.n_layers):
             E_seq[l] = Variable(torch.zeros(batch_size, 2 * self.a_channels[l], w, h).to(self.device))
-            R_seq[l] = Variable(torch.zeros(batch_size, self.r_channels[l], w, h).to(self.device))
             w = w//2
             h = h//2
         time_steps = input.size(1)
@@ -80,7 +48,7 @@ class PredNetFF(nn.Module):
             A = A.to(self.device)
 
             for l in range(self.n_layers):
-                conv = getattr(self, 'conv{}'.format(l))
+                # conv = getattr(self, 'conv{}'.format(l))
                 if l < self.n_layers - 1:
                     update_A = getattr(self, 'update_A{}'.format(l))
                     A = update_A(A)
@@ -108,25 +76,16 @@ class PredNetFF(nn.Module):
         rec_error = torch.mm(rec_error.view(loc_batch, -1), self.layer_loss_weights)
         rec_error = torch.mean(rec_error)
 
-        return rec_error, classification
+        self.rec_error = rec_error
+        self.classification_steps = classification_steps
 
-    def calculate_loss(self, model_output, labels):
-        rec_error, classification = model_output
+        return classification
 
-        # Create a tensor of label arrays to compare with classification tensor
-        label_arr = [[float(label == labels[i]) for label in range(10)] for i in range(16)]
-        class_error = list()
-        for c in range(len(classification)):
-            label_tensor = torch.FloatTensor(label_arr[c]).to(self.device)
-            classification_loss = torch.nn.functional.cross_entropy(classification[c], label_tensor)
-            class_error.append(classification_loss)
-
-        mean_class_error = sum(class_error) / len(class_error)
-        return mean_class_error
+    def get_total_error(self) -> float:
+        return self.class_error
 
 
 class SatLU(nn.Module):
-
     def __init__(self, lower=0, upper=255, inplace=False):
         super(SatLU, self).__init__()
         self.lower = lower

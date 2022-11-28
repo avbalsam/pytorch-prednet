@@ -6,14 +6,26 @@ import torch
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
 
+from plot_data import plot
 from prednet import PredNet
 from controls.prednet_additive import PredNetAdditive
 from controls.prednet_feedforward import PredNetFF
 
 from mnist_data_prednet import MNIST_Frames
+from utility import get_accuracy
 
+A_channels = (3, 48, 96, 192)
+R_channels = (3, 48, 96, 192)
+nt = 5  # Number of timesteps
 
-MODELS = {'prednet': PredNet, 'prednet_additive': PredNetAdditive, 'prednet_feedforward': PredNetFF, 'prednet_norec': PredNet}
+MODELS = {
+    'prednet': PredNet(R_channels=R_channels, A_channels=A_channels, nt=nt,
+                       class_weight=0.1, rec_weight=0.9),
+    'prednet_additive': PredNetAdditive(R_channels=R_channels, A_channels=A_channels, nt=nt,
+                                        class_weight=1, rec_weight=0),
+    'prednet_feedforward': PredNetFF(R_channels=R_channels, A_channels=A_channels, nt=nt),
+    'prednet_norec': PredNet(R_channels=R_channels, A_channels=A_channels, nt=nt,
+                             class_weight=1, rec_weight=0)}
 DATASETS = {'mnist_frames': MNIST_Frames}
 
 
@@ -33,39 +45,6 @@ def parse_args():
     return args
 
 
-def get_accuracy(val_loader, model, timestep=None):
-    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-
-    correct_guesses = 0
-    total_guesses = 0
-    accuracy = 0
-    wrong_guesses = list()
-    for i, (inputs, labels) in enumerate(val_loader):
-        inputs = Variable(inputs.to(device))
-
-        if timestep is None:
-            rec_error, classification = model(inputs)
-        else:
-            rec_error, classification = model(inputs, timestep)
-
-        for j in range(len(classification)):
-            c = classification[j].tolist()
-            _class = c.index(max(c))
-            # print(
-            #    f"Image {i + j}; Correct label: {labels[j]}; Predicted: {_class}; Correct guesses: {correct_guesses}; "
-            #    f"Accuracy: {round(accuracy * 100, 3)}%")
-            total_guesses += 1
-            if labels[j] == _class:
-                correct_guesses += 1
-                accuracy = correct_guesses / total_guesses
-            else:
-                wrong_guesses.append((labels[j], _class))
-
-        if i % 10 == 0:
-            print("Timestep: {}, Step: {}, Accuracy: {}".format("avg" if timestep is None else timestep, i, accuracy))
-    return accuracy
-
-
 def torch_main(args):
     assert args.model_name in MODELS.keys(), f'Please choose a valid model name from {MODELS.keys()}'
     assert args.data_name in DATASETS.keys(), f'Please choose a valid dataset from {DATASETS.keys()}'
@@ -77,6 +56,7 @@ def torch_main(args):
 
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
+    args.model_name = "prednet_feedforward"
     if 'prednet' in args.model_name:
         num_epochs = 50
         batch_size = 16
@@ -97,17 +77,7 @@ def torch_main(args):
               f"Noise type: {noise_type}\n"
               f"Noise intensity: {noise_intensity}\n\n\n", flush=True)
 
-        if args.model_name == 'prednet':
-            model = PredNet(R_channels=R_channels, A_channels=A_channels, nt=nt,
-                            class_weight=0.1, rec_weight=0.9)
-        elif args.model_name == 'prednet_norec':
-            model = PredNet(R_channels=R_channels, A_channels=A_channels, nt=nt,
-                            class_weight=1, rec_weight=0)
-        elif args.model_name == 'prednet_additive':
-            model = PredNetAdditive(R_channels=R_channels, A_channels=A_channels, nt=nt,
-                                    class_weight=1, rec_weight=0)
-        elif args.model_name == 'prednet_feedforward':
-            model = PredNetFF(R_channels=R_channels, A_channels=A_channels, device=device, nt=nt)
+        model = MODELS[args.model_name]
 
         model.to(device)
         dir_name = model.get_name()
@@ -143,12 +113,12 @@ def torch_main(args):
             # inputs = inputs.permute(0, 1, 4, 2, 3)  # batch x time_steps x channel x width x height
             inputs = Variable(inputs.to(device))
 
-            model_output = model(inputs)  # batch x n_layers x nt
+            classification = model(inputs)  # batch x n_layers x nt
 
-            loss = model.calculate_loss(model_output, labels)
+            model.calculate_loss(classification, labels)
 
-            rec_error, classification = model_output
-            classification_error = 10*(loss - 0.9 * rec_error)
+            loss = model.get_total_error()
+
             for j in range(len(classification)):
                 c = classification[j].tolist()
                 _class = c.index(max(c))
@@ -162,15 +132,19 @@ def torch_main(args):
 
             optimizer.step()
 
+            class_error = model.get_class_error()
+            rec_error = model.get_rec_error()
+
             if i % 10 == 0:
                 print('Epoch: {}/{}, Step: {}/{}, Rec Loss: {}, Class Loss: {}'
                       .format(epoch, num_epochs, i, len(train_dataset) // batch_size, round(rec_error.item(), 7),
-                      round(classification_error.item(), 7)),
+                              round(class_error.item(), 7)),
                       flush=True)
 
         # Add loss and accuracy from this epoch to list
-        class_error_epochs.append(classification_error.item())
+        class_error_epochs.append(class_error.item())
         rec_error_epochs.append(rec_error.item())
+
         train_accuracy = correct_guesses / total_guesses
         training_acc_epochs.append(train_accuracy)
         val_accuracy = get_accuracy(val_loader, model)
@@ -198,6 +172,9 @@ def torch_main(args):
 
     torch.save(model.state_dict(),
                f'./{dir_name}/model.pt')
+    print(f"Finished training model {dir_name}. Plotting data...")
+
+    plot(model, DATASETS[args.data_name])
 
 
 if __name__ == '__main__':

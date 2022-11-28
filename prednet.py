@@ -9,7 +9,9 @@ class PredNet(nn.Module):
     def __init__(self, R_channels, A_channels, nt=5, class_weight=0.1, rec_weight=0.9):
         super(PredNet, self).__init__()
         self.classification_steps = None
-        self.reconstruction_error = None
+
+        self.rec_error = None
+        self.class_error = None
 
         self.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
@@ -25,8 +27,7 @@ class PredNet(nn.Module):
         self.n_layers = len(R_channels)
 
         for i in range(self.n_layers):
-            cell = ConvLSTMCell(2 * self.a_channels[i] + self.r_channels[i+1],                                                                             self.r_channels[i],
-                                (3, 3))
+            cell = ConvLSTMCell(2 * self.a_channels[i] + self.r_channels[i+1], self.r_channels[i], (3, 3))
             setattr(self, 'cell{}'.format(i), cell)
 
         for i in range(self.n_layers):
@@ -123,37 +124,48 @@ class PredNet(nn.Module):
         reconstruction_error = torch.stack(total_error, 2) # batch x n_layers x nt
         # return torch.stack(total_error, 2), classification_steps  # batch x n_layers x nt
 
-        if timestep is None:
-            classification = sum(classification_steps) / len(classification_steps)
-        else:
-            classification = classification_steps[timestep]
-
         loc_batch = reconstruction_error.size(0)
         rec_error = torch.mm(reconstruction_error.view(-1, self.nt), self.time_loss_weights)  # batch*n_layers x 1
         rec_error = torch.mm(rec_error.view(loc_batch, -1), self.layer_loss_weights)
         rec_error = torch.mean(rec_error)
 
-        return rec_error, classification
+        self.rec_error = rec_error
+        self.classification_steps = classification_steps
 
-    def calculate_loss(self, model_output, labels):
-        rec_error, classification = model_output
+        if timestep is None:
+            classification = sum(self.classification_steps) / len(self.classification_steps)
+        else:
+            classification = self.classification_steps[timestep]
 
+        return classification
+
+    def calculate_loss(self, prediction, labels) -> float:
         # Create a tensor of label arrays to compare with classification tensor
         label_arr = [[float(label == labels[i]) for label in range(10)] for i in range(16)]
         class_error = list()
-        for c in range(len(classification)):
+        for c in range(len(prediction)):
             label_tensor = torch.FloatTensor(label_arr[c]).to(self.device)
-            classification_loss = torch.nn.functional.cross_entropy(classification[c], label_tensor)
+            classification_loss = torch.nn.functional.cross_entropy(prediction[c], label_tensor)
             class_error.append(classification_loss)
 
         mean_class_error = sum(class_error) / len(class_error)
-        errors_total = (self.rec_weight * rec_error) + (self.class_weight * mean_class_error)
 
+        self.class_error = mean_class_error
+
+        return self.get_total_error()
+
+    def get_total_error(self) -> float:
+        errors_total = (self.rec_weight * self.rec_error) + (self.class_weight * self.class_error)
         return errors_total
+
+    def get_class_error(self):
+        return self.class_error
+
+    def get_rec_error(self):
+        return self.rec_error
 
 
 class SatLU(nn.Module):
-
     def __init__(self, lower=0, upper=255, inplace=False):
         super(SatLU, self).__init__()
         self.lower = lower
@@ -162,7 +174,6 @@ class SatLU(nn.Module):
 
     def forward(self, input):
         return F.hardtanh(input, self.lower, self.upper, self.inplace)
-
 
     def __repr__(self):
         inplace_str = ', inplace' if self.inplace else ''

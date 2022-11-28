@@ -98,4 +98,10 @@ class PredNetAdditive(PredNet):
         rec_error = torch.mm(rec_error.view(loc_batch, -1), self.layer_loss_weights)
         rec_error = torch.mean(rec_error)
 
-        return rec_error, classification
+        self.rec_error = rec_error
+        self.classification_steps = classification_steps
+
+        return classification
+
+    def get_total_error(self) -> float:
+        return self.class_error
