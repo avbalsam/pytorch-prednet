@@ -7,26 +7,8 @@ from torch.autograd import Variable
 from torch.utils.data import DataLoader
 
 from plot_data import plot
-from prednet import PredNet
-from controls.prednet_additive import PredNetAdditive
-from controls.prednet_feedforward import PredNetFF
-
-from mnist_data_prednet import MNIST_Frames
 from utility import get_accuracy
-
-A_channels = (3, 48, 96, 192)
-R_channels = (3, 48, 96, 192)
-nt = 5  # Number of timesteps
-
-MODELS = {
-    'prednet': PredNet(R_channels=R_channels, A_channels=A_channels, nt=nt,
-                       class_weight=0.1, rec_weight=0.9),
-    'prednet_additive': PredNetAdditive(R_channels=R_channels, A_channels=A_channels, nt=nt,
-                                        class_weight=1, rec_weight=0),
-    'prednet_feedforward': PredNetFF(R_channels=R_channels, A_channels=A_channels, nt=nt),
-    'prednet_norec': PredNet(R_channels=R_channels, A_channels=A_channels, nt=nt,
-                             class_weight=1, rec_weight=0)}
-DATASETS = {'mnist_frames': MNIST_Frames}
+from models import MODELS, DATASETS
 
 
 def parse_args():
@@ -56,7 +38,6 @@ def torch_main(args):
 
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
-    args.model_name = "prednet_feedforward"
     if 'prednet' in args.model_name:
         num_epochs = 50
         batch_size = 16

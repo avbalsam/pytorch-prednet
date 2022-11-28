@@ -13,14 +13,6 @@ hostname
 echo "Plot Data"
 date "+%y/%m/%d %H:%M:%S"
 
-while getopts n: flag
-do
-    case "${flag}" in
-        n) dir_name=${OPTARG};;
-        *) pass
-    esac
-done
-
 source /om2/user/jangh/miniconda/etc/profile.d/conda.sh
 conda activate openmind
-python plot_data.py -n "$dir_name"
+python plot_data.py
