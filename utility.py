@@ -13,9 +13,9 @@ def get_accuracy(val_loader, model, timestep=None):
         inputs = Variable(inputs.to(device))
 
         if timestep is None:
-            rec_error, classification = model(inputs)
+            classification = model(inputs)
         else:
-            rec_error, classification = model(inputs, timestep)
+            classification = model(inputs, timestep)
 
         for j in range(len(classification)):
             c = classification[j].tolist()
