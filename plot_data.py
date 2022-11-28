@@ -6,6 +6,7 @@ import seaborn as sns
 
 import csv
 
+import torch
 from torch.utils.data import DataLoader
 
 from models import MODELS, DATASETS
@@ -85,6 +86,9 @@ def plot_noise_levels(model, dataset, noise_type='gaussian', noise_levels=None):
 
 def plot(model, dataset):
     dir_name = model.get_name()
+
+    # I'm not sure why I have to do this, but my code throws an error without it.
+    model = model.to(torch.device('cpu'))
 
     print(f"Plotting loss and accuracy over epochs for model {dir_name}...")
     plot_epochs('loss', dir_name).savefig(f"{dir_name}/loss_plot.png")

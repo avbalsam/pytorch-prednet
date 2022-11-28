@@ -6,14 +6,20 @@ from torch.autograd import Variable
 
 
 class PredNet(nn.Module):
-    def __init__(self, R_channels, A_channels, nt=5, class_weight=0.1, rec_weight=0.9):
+    def __init__(self, R_channels, A_channels, nt=5, class_weight=0.1, rec_weight=0.9, device=None,
+                 noise_type: str = 'gaussian', noise_intensities=None):
         super(PredNet, self).__init__()
+        if noise_intensities is None:
+            noise_intensities = [0.0]
         self.classification_steps = None
 
         self.rec_error = None
         self.class_error = None
 
-        self.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+        if device is None:
+            self.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+        else:
+            self.device = device
 
         self.layer_loss_weights = Variable(torch.FloatTensor([[1.], [1.], [1.], [1.]]).to(self.device))
         self.time_loss_weights = Variable(torch.ones(nt, 1).to(self.device))
@@ -22,12 +28,16 @@ class PredNet(nn.Module):
         self.class_weight = class_weight
         self.rec_weight = rec_weight
 
-        self.r_channels = R_channels + (0, )  # for convenience
+        # Type of noise and array of intensities to generate it at
+        self.noise_type = noise_type
+        self.noise_intensities = [0.0] if noise_intensities is None else noise_intensities
+
+        self.r_channels = R_channels + (0,)  # for convenience
         self.a_channels = A_channels
         self.n_layers = len(R_channels)
 
         for i in range(self.n_layers):
-            cell = ConvLSTMCell(2 * self.a_channels[i] + self.r_channels[i+1], self.r_channels[i], (3, 3))
+            cell = ConvLSTMCell(2 * self.a_channels[i] + self.r_channels[i + 1], self.r_channels[i], (3, 3))
             setattr(self, 'cell{}'.format(i), cell)
 
         for i in range(self.n_layers):
@@ -45,13 +55,17 @@ class PredNet(nn.Module):
         self.flatten = nn.Flatten()
 
         for l in range(self.n_layers - 1):
-            update_A = nn.Sequential(nn.Conv2d(2* self.a_channels[l], self.a_channels[l+1], (3, 3), padding=1), self.maxpool)
+            update_A = nn.Sequential(nn.Conv2d(2 * self.a_channels[l], self.a_channels[l + 1], (3, 3), padding=1),
+                                     self.maxpool)
             setattr(self, 'update_A{}'.format(l), update_A)
 
         self.reset_parameters()
 
     def get_name(self):
         return f"prednet_{self.nt}_c{self.class_weight}_r{self.rec_weight}"
+
+    def get_device(self):
+        return self.device
 
     def reset_parameters(self):
         for l in range(self.n_layers):
@@ -69,8 +83,8 @@ class PredNet(nn.Module):
         for l in range(self.n_layers):
             E_seq[l] = Variable(torch.zeros(batch_size, 2 * self.a_channels[l], w, h).to(self.device))
             R_seq[l] = Variable(torch.zeros(batch_size, self.r_channels[l], w, h).to(self.device))
-            w = w//2
-            h = h//2
+            w = w // 2
+            h = h // 2
         time_steps = input.size(1)
         total_error = []
 
@@ -92,7 +106,7 @@ class PredNet(nn.Module):
                 if l == self.n_layers - 1:
                     R, hx = cell(E, hx)
                 else:
-                    tmp = torch.cat((E, self.upsample(R_seq[l+1])), 1)
+                    tmp = torch.cat((E, self.upsample(R_seq[l + 1])), 1)
                     R, hx = cell(tmp, hx)
                 R_seq[l] = R
                 H_seq[l] = hx
@@ -104,7 +118,7 @@ class PredNet(nn.Module):
                 pos = F.relu(A_hat - A)
                 neg = F.relu(A - A_hat)
 
-                E = torch.cat([pos, neg],1)
+                E = torch.cat([pos, neg], 1)
                 E_seq[l] = E
 
                 if l < self.n_layers - 1:
@@ -121,7 +135,7 @@ class PredNet(nn.Module):
 
             classification_steps.append(classification)
 
-        reconstruction_error = torch.stack(total_error, 2) # batch x n_layers x nt
+        reconstruction_error = torch.stack(total_error, 2)  # batch x n_layers x nt
         # return torch.stack(total_error, 2), classification_steps  # batch x n_layers x nt
 
         loc_batch = reconstruction_error.size(0)
@@ -177,7 +191,7 @@ class SatLU(nn.Module):
 
     def __repr__(self):
         inplace_str = ', inplace' if self.inplace else ''
-        return self.__class__.__name__ + ' ('\
-            + 'min_val=' + str(self.lower) \
-	        + ', max_val=' + str(self.upper) \
-	        + inplace_str + ')'
+        return self.__class__.__name__ + ' (' \
+               + 'min_val=' + str(self.lower) \
+               + ', max_val=' + str(self.upper) \
+               + inplace_str + ')'

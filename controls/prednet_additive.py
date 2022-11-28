@@ -14,8 +14,8 @@ class PredNetAdditive(PredNet):
     Adds errors between layers instead of subtracting them, and does not take rec error into account.
     Otherwise exactly the same as regular Prednet.
     """
-    def __init__(self, R_channels, A_channels, nt=5, class_weight=1, rec_weight=0):
-        super().__init__(R_channels, A_channels, nt, class_weight=class_weight, rec_weight=rec_weight)
+    def __init__(self, R_channels, A_channels, nt=5, class_weight=1, rec_weight=0, device=None):
+        super().__init__(R_channels, A_channels, nt, class_weight=class_weight, rec_weight=rec_weight, device=device)
 
     def get_name(self):
         return f"{super().get_name()}_additive"

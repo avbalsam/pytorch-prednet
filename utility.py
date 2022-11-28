@@ -3,7 +3,7 @@ from torch.autograd import Variable
 
 
 def get_accuracy(val_loader, model, timestep=None):
-    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+    device = model.get_device()
 
     correct_guesses = 0
     total_guesses = 0

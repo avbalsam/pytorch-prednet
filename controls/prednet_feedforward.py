@@ -10,8 +10,8 @@ from prednet import PredNet
 
 
 class PredNetFF(PredNet):
-    def __init__(self, R_channels, A_channels, nt=5):
-        super().__init__(R_channels, A_channels, nt, class_weight=1, rec_weight=0)
+    def __init__(self, R_channels, A_channels, nt=5, device=None):
+        super().__init__(R_channels, A_channels, nt, class_weight=1, rec_weight=0, device=device)
 
         # Linear layer for classification
         self.linear = nn.Linear(3072, 10)
