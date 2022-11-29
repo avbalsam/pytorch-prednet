@@ -73,7 +73,7 @@ def plot_noise_levels(model, dataset, noise_type='gaussian', noise_levels=None):
         noise_levels = [0.0, 0.1, 0.2, 0.3]
     for timestep in range(nt):
         for level in noise_levels:
-            noisy_data = dataset(nt, train=False, noise_type=noise_type, noise_intensity=level)
+            noisy_data = dataset(nt, train=False, noise_type=noise_type, noise_intensities=[level])
             val_loader = DataLoader(noisy_data, batch_size=16, shuffle=True)
             accuracy_over_noise.append([level, get_accuracy(val_loader, model, timestep), timestep])
 
@@ -87,8 +87,9 @@ def plot_noise_levels(model, dataset, noise_type='gaussian', noise_levels=None):
 def plot(model, dataset):
     dir_name = model.get_name()
 
-    # I'm not sure why I have to do this, but my code throws an error without it.
-    model = model.to(torch.device('cpu'))
+    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+    model.to(device)
+    model.load_state_dict(torch.load(f"{dir_name}/model.pt", map_location=device))
 
     print(f"Plotting loss and accuracy over epochs for model {dir_name}...")
     plot_epochs('loss', dir_name).savefig(f"{dir_name}/loss_plot.png")

@@ -6,7 +6,7 @@ from torch.autograd import Variable
 
 
 class PredNet(nn.Module):
-    def __init__(self, R_channels, A_channels, nt=5, class_weight=0.1, rec_weight=0.9, device=None,
+    def __init__(self, R_channels, A_channels, nt=5, class_weight=0.1, rec_weight=0.9,
                  noise_type: str = 'gaussian', noise_intensities=None):
         super(PredNet, self).__init__()
         if noise_intensities is None:
@@ -16,10 +16,7 @@ class PredNet(nn.Module):
         self.rec_error = None
         self.class_error = None
 
-        if device is None:
-            self.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-        else:
-            self.device = device
+        self.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
         self.layer_loss_weights = Variable(torch.FloatTensor([[1.], [1.], [1.], [1.]]).to(self.device))
         self.time_loss_weights = Variable(torch.ones(nt, 1).to(self.device))
@@ -62,7 +59,10 @@ class PredNet(nn.Module):
         self.reset_parameters()
 
     def get_name(self):
-        return f"prednet_{self.nt}_c{self.class_weight}_r{self.rec_weight}"
+        if self.noise_intensities is None or self.noise_intensities == [0.0]:
+            return f"prednet_{self.nt}_c{self.class_weight}_r{self.rec_weight}"
+        else:
+            return f"prednet_{self.nt}_c{self.class_weight}_r{self.rec_weight}_{self.noise_type}_{self.noise_intensities}"
 
     def get_device(self):
         return self.device

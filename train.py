@@ -8,7 +8,7 @@ from torch.utils.data import DataLoader
 
 from plot_data import plot
 from utility import get_accuracy
-from models import MODELS, DATASETS
+from models import MODELS, DATASETS, NOISE_TYPE, NOISE_INTENSITIES
 
 
 def parse_args():
@@ -19,8 +19,6 @@ def parse_args():
     parser.add_argument('-m', '--model_name', default='prednet', type=str, help='filename of python file for model')
     parser.add_argument('-d', '--data_name', default='mnist_frames', type=str,
                         help='filename of python file for dataset')
-    parser.add_argument('-n', '--noise', default=0.0, type=float,
-                        help='amount of gaussian noise to add to dataset images')
     parser.add_argument('-b', '--blur', default=0.0, type=float, help='amount of blur to add to dataset images')
     args = parser.parse_args()
 
@@ -48,15 +46,15 @@ def torch_main(args):
         # For exclusively feedforward network, use nt=1
         nt = 5  # num of time steps
 
-        noise_intensity = args.noise
-        noise_type = 'gaussian'
+        noise_intensities = NOISE_INTENSITIES  # Levels of noise to train with
+        noise_type = NOISE_TYPE
 
         print(f"Model: {args.model_name}\n"
               f"Epochs: {num_epochs}\n"
               f"Learning rate: {lr}\n"
               f"Time steps: {nt}\n"
               f"Noise type: {noise_type}\n"
-              f"Noise intensity: {noise_intensity}\n\n\n", flush=True)
+              f"Noise intensities: {noise_intensities}\n\n\n", flush=True)
 
         model = MODELS[args.model_name]
 
@@ -71,8 +69,8 @@ def torch_main(args):
                     param_group['lr'] = 0.0001
                 return optimizer
 
-    train_dataset = DATASETS[args.data_name](nt, train=True, noise_type=noise_type, noise_intensity=noise_intensity)
-    val_dataset = DATASETS[args.data_name](nt, train=False, noise_type=noise_type, noise_intensity=noise_intensity)
+    train_dataset = DATASETS[args.data_name](nt, train=True, noise_type=noise_type, noise_intensities=noise_intensities)
+    val_dataset = DATASETS[args.data_name](nt, train=False, noise_type=noise_type, noise_intensities=noise_intensities)
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=True)
