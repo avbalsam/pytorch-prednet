@@ -10,6 +10,7 @@ R_channels = (3, 48, 96, 192)
 nt = 5  # Number of timesteps
 NOISE_TYPE = 'gaussian'
 NOISE_INTENSITIES = [0.0, 0.25, 0.5]
+# NOISE_INTENSITIES = [0.0]
 
 MODELS = {
     'prednet': PredNet(R_channels=R_channels, A_channels=A_channels, nt=nt,
@@ -18,5 +19,8 @@ MODELS = {
                                         class_weight=1, rec_weight=0, noise_type=NOISE_TYPE, noise_intensities=NOISE_INTENSITIES),
     'prednet_feedforward': PredNetFF(R_channels=R_channels, A_channels=A_channels, nt=nt),
     'prednet_norec': PredNet(R_channels=R_channels, A_channels=A_channels, nt=nt,
-                             class_weight=1, rec_weight=0, noise_type=NOISE_TYPE, noise_intensities=NOISE_INTENSITIES)}
+                             class_weight=1, rec_weight=0, noise_type=NOISE_TYPE, noise_intensities=NOISE_INTENSITIES),
+    'prednet_cw': PredNet(R_channels=R_channels, A_channels=A_channels, nt=nt,
+                          class_weight=0.5, rec_weight=0.5, noise_type=NOISE_TYPE, noise_intensities=NOISE_INTENSITIES),
+}
 DATASETS = {'mnist_frames': MNIST_Frames}
