@@ -48,12 +48,13 @@ def plot_epochs(plot_type, dir_name):
 def plot_timesteps(model, dataset, plot_type):
     nt = model.nt
 
-    data_loader = dataset(nt, train=False)
     valid_plot_types = ['timestep accuracy']
     assert plot_type in valid_plot_types, f"Please pick a valid plot type from {valid_plot_types}"
     data = [["Timestep", "Accuracy"]]
     for timestep in range(nt):
-        accuracy = get_accuracy(data_loader, model, timestep)
+        ds = dataset(nt, train=False, noise_type=model.noise_type, noise_intensities=model.noise_intensities)
+        val_loader = DataLoader(ds, batch_size=16, shuffle=True)
+        accuracy = get_accuracy(val_loader, model, timestep)
         print(f"Timestep: {timestep}, Accuracy: {accuracy}")
         data.append([timestep, accuracy])
 
@@ -70,7 +71,7 @@ def plot_noise_levels(model, dataset, noise_type='gaussian', noise_levels=None):
 
     accuracy_over_noise = [["Noise level", "Accuracy", "Timestep"]]
     if noise_levels is None:
-        noise_levels = [0.0, 0.1, 0.2, 0.3]
+        noise_levels = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
     for timestep in range(nt):
         for level in noise_levels:
             noisy_data = dataset(nt, train=False, noise_type=noise_type, noise_intensities=[level])
