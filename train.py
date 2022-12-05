@@ -8,7 +8,7 @@ from torch.utils.data import DataLoader
 
 from plot_data import plot
 from utility import get_accuracy
-from models import MODELS, DATASETS, NOISE_TYPE, NOISE_INTENSITIES
+from models import MODELS, DATASETS
 
 
 def parse_args():
@@ -39,27 +39,26 @@ def torch_main(args):
     if 'prednet' in args.model_name:
         num_epochs = 50
         batch_size = 16
-        A_channels = (3, 48, 96, 192)
-        R_channels = (3, 48, 96, 192)
         lr = 0.0001  # if epoch < 75 else 0.0001
 
         # For exclusively feedforward network, use nt=1
-        nt = 5  # num of time steps
 
-        noise_intensities = NOISE_INTENSITIES  # Levels of noise to train with
-        noise_type = NOISE_TYPE
+        model = MODELS[args.model_name]
 
-        print(f"Model: {args.model_name}\n"
+        nt = model.nt
+
+        noise_intensities = model.noise_intensities  # Levels of noise to train with
+        noise_type = model.noise_type
+
+        model.to(device)
+        dir_name = model.get_name()
+
+        print(f"Model: {model.get_name()}\n"
               f"Epochs: {num_epochs}\n"
               f"Learning rate: {lr}\n"
               f"Time steps: {nt}\n"
               f"Noise type: {noise_type}\n"
               f"Noise intensities: {noise_intensities}\n\n\n", flush=True)
-
-        model = MODELS[args.model_name]
-
-        model.to(device)
-        dir_name = model.get_name()
 
         def lr_scheduler(optimizer, epoch):
             if epoch < num_epochs // 2:

@@ -1,15 +1,19 @@
 import argparse
 import csv
+import os.path
+import shutil
 
+import pandas
 import pandas as pd
 import seaborn as sns
 
 import csv
 
 import torch
+from matplotlib import pyplot as plt
 from torch.utils.data import DataLoader
 
-from models import MODELS, DATASETS
+from models import MODELS, DATASETS, get_model_by_name
 from utility import get_accuracy
 
 
@@ -43,6 +47,63 @@ def plot_epochs(plot_type, dir_name):
             data=dfm, kind="line",
             x="Epochs", y=plot_type, hue=f'{plot_type} type'
         )
+
+
+def plot_batch_across_timesteps(model, dataset, noise_type=None, noise_intensities=None):
+    if noise_type is None or noise_intensities is None:
+        noise_type = model.noise_type
+        noise_intensities = model.noise_intensities
+    nt = model.nt
+    ds = dataset(nt, train=False, noise_type=noise_type, noise_intensities=noise_intensities)
+    val_loader = DataLoader(ds, batch_size=16, shuffle=True)
+
+    batch_dict = dict()
+
+    for i, (inputs, labels) in enumerate(val_loader):
+        for l in range(len(labels)):
+            label = labels[l].item()
+            if label not in batch_dict.keys():
+                batch_dict[label] = inputs[l]
+
+    labels = list(batch_dict.keys())
+
+    data = [['timestep', 'predicted_label', 'confidence']]
+
+    # if os.path.exists(f"./{model.get_name()}/input_img_over_timesteps/"):
+    #     shutil.rmtree(f"./{model.get_name()}/input_img_over_timesteps/")
+
+    for label in labels:
+        input = batch_dict[label]
+        batch_list = [input] * 16
+        batch_tensor = torch.stack(batch_list)
+        for timestep in range(nt):
+            classification = model(batch_tensor, timestep)
+            _class = classification[0].detach().cpu().numpy()
+            _class = [i - min(_class) for i in _class]
+            for c in range(len(_class)):
+                # ['timestep', 'predicted_label', 'confidence']
+                data.append([timestep, sorted(labels)[c], _class[c]])
+
+            output_path = f"./{model.get_name()}/input_img_over_timesteps/label_{label}"
+            if not os.path.exists(output_path):
+                os.makedirs(output_path)
+
+            plot = sns.barplot(x=sorted(labels), y=_class)
+            print(f"{output_path}/timestep_{timestep}.png")
+            plt.imsave(f"{output_path}/input_image_{label}.png", input[0][0], cmap='gray')
+            plot.set_title(f"{model.get_name()} step {timestep} label {label}")
+            plt.savefig(f"{output_path}/timestep_{timestep}.png")
+            plt.show()
+
+        # The following code creates a FacetGrid with timestep data. I found that it didn't look as good.
+        """
+        df = pd.DataFrame(data[1:], columns=data[0])
+        grid = sns.FacetGrid(df, col="timestep")
+        grid.map(sns.barplot, "predicted_label", "confidence", errorbar=None)
+        plt.savefig(f"{output_path}/grid_label_{label}.png")
+        plt.clf()
+        print(df)
+        """
 
 
 def plot_timesteps(model, dataset, plot_type):
@@ -92,6 +153,8 @@ def plot(model, dataset):
     model.to(device)
     model.load_state_dict(torch.load(f"{dir_name}/model.pt", map_location=device))
 
+    plot_batch_across_timesteps(model, dataset)
+
     print(f"Plotting loss and accuracy over epochs for model {dir_name}...")
     plot_epochs('loss', dir_name).savefig(f"{dir_name}/loss_plot.png")
     plot_epochs('accuracy', dir_name).savefig(f"{dir_name}/accuracy_plot.png")
@@ -114,7 +177,16 @@ def plot_dir(model_name, ds_name):
 
 
 if __name__ == "__main__":
-    model_names = [name for name in MODELS.keys()]
-    dataset_name = 'mnist_frames'
-    for m in model_names:
-        plot_dir(m, dataset_name)
+    plot(get_model_by_name('prednet', class_weight=0.1, rec_weight=0.9, nt=10, noise_type='gaussian',
+                           noise_intensities=[0.0]), DATASETS['mnist_frames'])
+    print("Finished plotting prednet no noise\n\n\n", flush=True)
+    plot(get_model_by_name('prednet', class_weight=0.1, rec_weight=0.9, nt=10, noise_type='gaussian',
+                           noise_intensities=[0.0, 0.25, 0.5]), DATASETS['mnist_frames'])
+    print("Finished plotting prednet with noise\n\n\n", flush=True)
+    plot(get_model_by_name('prednet_additive', class_weight=0.1, rec_weight=0.9, nt=10, noise_type='gaussian',
+                           noise_intensities=[0.0, 0.25, 0.5]), DATASETS['mnist_frames'])
+    # exit(0)
+    # model_names = [name for name in MODELS.keys()]
+    # dataset_name = 'mnist_frames'
+    # for m in model_names:
+    #    plot_dir(m, dataset_name)
