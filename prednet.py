@@ -47,7 +47,7 @@ class PredNet(nn.Module):
         self.maxpool = nn.MaxPool2d(kernel_size=2, stride=2)
 
         # Linear layer for classification
-        self.linear = nn.Linear(6144, 10)
+        self.linear = nn.Linear(98304, 7)
 
         self.flatten = nn.Flatten()
 
@@ -155,7 +155,7 @@ class PredNet(nn.Module):
 
     def calculate_loss(self, prediction, labels) -> float:
         # Create a tensor of label arrays to compare with classification tensor
-        label_arr = [[float(label == labels[i]) for label in range(10)] for i in range(16)]
+        label_arr = [[float(label == labels[i]) for label in range(7)] for i in range(16)]
         class_error = list()
         for c in range(len(prediction)):
             label_tensor = torch.FloatTensor(label_arr[c]).to(self.device)

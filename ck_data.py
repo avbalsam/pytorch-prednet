@@ -6,9 +6,9 @@ import torch.utils.data as data
 import torchvision.datasets
 
 
-def get_ck_data(source_dir = "/Users/avbalsam/Desktop/Predictive_Coding_UROP/CK+/cohn-kanade-images",
-                 label_dir = "/Users/avbalsam/Desktop/Predictive_Coding_UROP/CK+/Emotion"):
-
+def get_ck_data(source_dir="/Users/avbalsam/Desktop/Predictive_Coding_UROP/CK+/cohn-kanade-images",
+                label_dir="/Users/avbalsam/Desktop/Predictive_Coding_UROP/CK+/Emotion",
+                output_path="/Users/avbalsam/Desktop/Predictive_Coding_UROP/ck_hkl/ck_data"):
     ck_data = list()
     for subject in os.listdir(source_dir):
         subject_path = f"{source_dir}/{subject}"
@@ -34,16 +34,20 @@ def get_ck_data(source_dir = "/Users/avbalsam/Desktop/Predictive_Coding_UROP/CK+
                             print(
                                 f"Could not find label for {source_path}. It will not be added to training data.")
 
-    output_path = "/Users/avbalsam/Desktop/Predictive_Coding_UROP/ck_hkl/ck_data"
     with open(output_path, "wb") as outfile:
         pickle.dump(ck_data, outfile)
     return ck_data
 
 
 class CK:
-    def __init__(self, nt: int, train: bool = False, data_path: str = "/Users/avbalsam/Desktop/Predictive_Coding_UROP/ck_hkl/ck_data.hkl", noise_type=None, noise_intensities=None):
-        with open("/Users/avbalsam/Desktop/Predictive_Coding_UROP/ck_hkl/ck_data", "rb") as infile:
-            self.data = pickle.load(infile)
+    def __init__(self, nt: int, train: bool = False,
+                 data_path: str = "/Users/avbalsam/Desktop/Predictive_Coding_UROP/ck_hkl/ck_data.hkl", noise_type=None,
+                 noise_intensities=None):
+        if os.path.exists("/Users/avbalsam/Desktop/Predictive_Coding_UROP/ck_hkl/ck_data"):
+            with open("/Users/avbalsam/Desktop/Predictive_Coding_UROP/ck_hkl/ck_data", "rb") as infile:
+                self.data = pickle.load(infile)
+        else:
+            self.data = get_ck_data()
         self.nt = nt
 
     def __getitem__(self, index):
@@ -51,10 +55,13 @@ class CK:
 
         # Repeat the first frame if sequence is too short
         while len(frames) < self.nt:
-            frames.insert(frames[0], 0)
-        frames = frames[self.nt*-1:]
-        frames = [torchvision.io.read_image(frame) for frame in frames]
+            frames.insert(0, frames[0])
+        # TODO: Experiment around with resizing image, and make sure proportions make sense
+        frames = frames[self.nt * -1:]
+        frames = [torch.unsqueeze(torchvision.transforms.Resize((128, 128))(torchvision.transforms.functional.rgb_to_grayscale(torchvision.io.read_image(frame))).repeat(3,1,1), 0) for frame in frames]
         frames = torch.cat(frames, 0)
+        if frames.size() != torch.Size([10, 3, 128, 128]):
+            print("Weird")
         return frames, label
 
     def __len__(self):
