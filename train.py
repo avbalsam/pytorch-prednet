@@ -45,10 +45,19 @@ def torch_main(args):
 
         model = MODELS[args.model_name]
 
+
         nt = model.nt
 
         noise_intensities = model.noise_intensities  # Levels of noise to train with
         noise_type = model.noise_type
+
+        train_dataset = DATASETS[args.data_name](nt, train=True, noise_type=noise_type,
+                                                 noise_intensities=noise_intensities)
+        val_dataset = DATASETS[args.data_name](nt, train=False, noise_type=noise_type,
+                                               noise_intensities=noise_intensities)
+
+        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+        val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=True)
 
         model.to(device)
         dir_name = model.get_name()
@@ -67,12 +76,6 @@ def torch_main(args):
                 for param_group in optimizer.param_groups:
                     param_group['lr'] = 0.0001
                 return optimizer
-
-    train_dataset = DATASETS[args.data_name](nt, train=True, noise_type=noise_type, noise_intensities=noise_intensities)
-    val_dataset = DATASETS[args.data_name](nt, train=False, noise_type=noise_type, noise_intensities=noise_intensities)
-
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=True)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 

@@ -10,7 +10,7 @@ A_channels = (3, 48, 96, 192)
 R_channels = (3, 48, 96, 192)
 nt = 10  # Number of timesteps
 NOISE_TYPE = 'gaussian'
-NOISE_INTENSITIES = [0.0, 0.25, 0.5]
+NOISE_INTENSITIES = [0.0]
 
 
 # NOISE_INTENSITIES = [0.0]

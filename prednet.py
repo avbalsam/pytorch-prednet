@@ -59,10 +59,10 @@ class PredNet(nn.Module):
         self.reset_parameters()
 
     def get_name(self):
-        if self.noise_intensities is None or self.noise_intensities == [0.0]:
-            return f"prednet_{self.nt}_c{self.class_weight}_r{self.rec_weight}"
-        else:
-            return f"prednet_{self.nt}_c{self.class_weight}_r{self.rec_weight}_{self.noise_type}_{self.noise_intensities}"
+        name = f"prednet_{self.nt}_c{self.class_weight}_r{self.rec_weight}"
+        if self.noise_intensities is not None and self.noise_intensities != [0.0]:
+            name += f"_{self.noise_type}_{self.noise_intensities}"
+        return name
 
     def get_device(self):
         return self.device

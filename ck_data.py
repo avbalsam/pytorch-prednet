@@ -19,7 +19,8 @@ def get_ck_data(source_dir="/Users/avbalsam/Desktop/Predictive_Coding_UROP/CK+/c
                     frames = list()
                     for frame_file in os.listdir(source_path):
                         if frame_file.endswith(".png"):
-                            frames.append(f"{source_path}/{frame_file}")
+                            img = torch.unsqueeze(torchvision.transforms.Resize((128, 128))(torchvision.transforms.functional.rgb_to_grayscale(torchvision.io.read_image(f"{source_path}/{frame_file}"))).repeat(3,1,1), 0)
+                            frames.append(img)
                             # print(f"Processed file {source_path}/{frame_file}...")
 
                     if os.path.exists(f"{label_dir}/{subject}/{num}"):
@@ -29,22 +30,22 @@ def get_ck_data(source_dir="/Users/avbalsam/Desktop/Predictive_Coding_UROP/CK+/c
                                     label = int(label_file.read().strip().split(".")[0])
                                     print(f"Finished frame sequence {source_path}. Label was {label}.")
                                     ck_data.append((frames, label))
+                                    with open(output_path, "wb") as outfile:
+                                        pickle.dump(ck_data, outfile)
                                     break
                         else:
                             print(
                                 f"Could not find label for {source_path}. It will not be added to training data.")
-
-    with open(output_path, "wb") as outfile:
-        pickle.dump(ck_data, outfile)
     return ck_data
 
 
 class CK:
     def __init__(self, nt: int, train: bool = False,
-                 data_path: str = "/Users/avbalsam/Desktop/Predictive_Coding_UROP/ck_hkl/ck_data.hkl", noise_type=None,
+                 data_path: str = "/Users/avbalsam/Desktop/Predictive_Coding_UROP/ck_hkl/ck_data", noise_type=None,
                  noise_intensities=None):
-        if os.path.exists("/Users/avbalsam/Desktop/Predictive_Coding_UROP/ck_hkl/ck_data"):
-            with open("/Users/avbalsam/Desktop/Predictive_Coding_UROP/ck_hkl/ck_data", "rb") as infile:
+        assert noise_type is None or noise_intensities is None or noise_intensities == [0.0], "Adding noise is not supported on CK dataset."
+        if os.path.exists(data_path):
+            with open(data_path, "rb") as infile:
                 self.data = pickle.load(infile)
         else:
             self.data = get_ck_data()
@@ -58,7 +59,7 @@ class CK:
             frames.insert(0, frames[0])
         # TODO: Experiment around with resizing image, and make sure proportions make sense
         frames = frames[self.nt * -1:]
-        frames = [torch.unsqueeze(torchvision.transforms.Resize((128, 128))(torchvision.transforms.functional.rgb_to_grayscale(torchvision.io.read_image(frame))).repeat(3,1,1), 0) for frame in frames]
+        frames = [frame for frame in frames]
         frames = torch.cat(frames, 0)
         if frames.size() != torch.Size([10, 3, 128, 128]):
             print("Weird")
