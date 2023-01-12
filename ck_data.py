@@ -8,7 +8,7 @@ import torchvision.datasets
 
 def get_ck_data(source_dir="/Users/avbalsam/Desktop/Predictive_Coding_UROP/CK+/cohn-kanade-images",
                 label_dir="/Users/avbalsam/Desktop/Predictive_Coding_UROP/CK+/Emotion",
-                output_path="/Users/avbalsam/Desktop/Predictive_Coding_UROP/ck_hkl/ck_data"):
+                output_path="/Users/avbalsam/Desktop/Predictive_Coding_UROP/ck_data/ck_data"):
     ck_data = list()
     for subject in os.listdir(source_dir):
         subject_path = f"{source_dir}/{subject}"
@@ -41,7 +41,7 @@ def get_ck_data(source_dir="/Users/avbalsam/Desktop/Predictive_Coding_UROP/CK+/c
 
 class CK:
     def __init__(self, nt: int, train: bool = False,
-                 data_path: str = "/Users/avbalsam/Desktop/Predictive_Coding_UROP/ck_hkl/ck_data", noise_type=None,
+                 data_path: str = "./ck_data/ck_data", noise_type=None,
                  noise_intensities=None):
         assert noise_type is None or noise_intensities is None or noise_intensities == [0.0], "Adding noise is not supported on CK dataset."
         if os.path.exists(data_path):
