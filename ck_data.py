@@ -19,7 +19,7 @@ def get_ck_data(source_dir="/Users/avbalsam/Desktop/Predictive_Coding_UROP/CK+/c
                     frames = list()
                     for frame_file in os.listdir(source_path):
                         if frame_file.endswith(".png"):
-                            img = torch.unsqueeze(torchvision.transforms.Resize((128, 128))(torchvision.transforms.functional.rgb_to_grayscale(torchvision.io.read_image(f"{source_path}/{frame_file}"))).repeat(3,1,1), 0)
+                            img = torch.unsqueeze(torchvision.transforms.Resize((512, 512))(torchvision.transforms.functional.rgb_to_grayscale(torchvision.io.read_image(f"{source_path}/{frame_file}"))).repeat(3,1,1), 0)
                             frames.append(img)
                             # print(f"Processed file {source_path}/{frame_file}...")
 
@@ -49,6 +49,11 @@ class CK:
                 self.data = pickle.load(infile)
         else:
             self.data = get_ck_data()
+
+        if train:
+            self.data = self.data[:int(len(self.data)*(7/8))]
+        else:
+            self.data = self.data[int(len(self.data)*(7/8)):]
         self.nt = nt
 
     def __getitem__(self, index):

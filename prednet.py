@@ -7,7 +7,7 @@ from torch.autograd import Variable
 
 class PredNet(nn.Module):
     def __init__(self, R_channels, A_channels, nt=5, class_weight=0.1, rec_weight=0.9,
-                 noise_type: str = 'gaussian', noise_intensities=None):
+                 noise_type: str = 'gaussian', noise_intensities=None, output_mode="classification"):
         super(PredNet, self).__init__()
         if noise_intensities is None:
             noise_intensities = [0.0]
@@ -47,7 +47,7 @@ class PredNet(nn.Module):
         self.maxpool = nn.MaxPool2d(kernel_size=2, stride=2)
 
         # Linear layer for classification
-        self.linear = nn.Linear(98304, 7)
+        self.linear = nn.Linear(98304, 8)
 
         self.flatten = nn.Flatten()
 
@@ -57,6 +57,10 @@ class PredNet(nn.Module):
             setattr(self, 'update_A{}'.format(l), update_A)
 
         self.reset_parameters()
+
+        assert output_mode in ["classification", "prediction"], \
+            "Invalid output mode. Choose from [\"classification\", \"prediction\"]"
+        self.output_mode = output_mode
 
     def get_name(self):
         name = f"prednet_{self.nt}_c{self.class_weight}_r{self.rec_weight}"
@@ -115,6 +119,8 @@ class PredNet(nn.Module):
                 conv = getattr(self, 'conv{}'.format(l))
 
                 A_hat = conv(R_seq[l])
+                if l==0:
+                    frame_prediction = A_hat
                 pos = F.relu(A_hat - A)
                 neg = F.relu(A - A_hat)
 
@@ -151,11 +157,14 @@ class PredNet(nn.Module):
         else:
             classification = self.classification_steps[timestep]
 
-        return classification
+        if self.output_mode == "classification":
+            return classification
+        elif self.output_mode == "prediction":
+            return frame_prediction
 
     def calculate_loss(self, prediction, labels) -> float:
         # Create a tensor of label arrays to compare with classification tensor
-        label_arr = [[float(label == labels[i]) for label in range(7)] for i in range(16)]
+        label_arr = [[float(label == labels[i]) for label in range(8)] for i in range(16 if len(labels) > 16 else len(labels))]
         class_error = list()
         for c in range(len(prediction)):
             label_tensor = torch.FloatTensor(label_arr[c]).to(self.device)

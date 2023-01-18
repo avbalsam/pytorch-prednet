@@ -31,7 +31,7 @@ def get_model_by_name(model_name, nt, class_weight, rec_weight, noise_type, nois
 
 MODELS = {
     'prednet': PredNet(R_channels=R_channels, A_channels=A_channels, nt=nt,
-                       class_weight=0.1, rec_weight=0.9, noise_type=NOISE_TYPE, noise_intensities=NOISE_INTENSITIES),
+                       class_weight=0.9, rec_weight=0.1, noise_type=NOISE_TYPE, noise_intensities=NOISE_INTENSITIES),
     'prednet_additive': PredNetAdditive(R_channels=R_channels, A_channels=A_channels, nt=nt,
                                         class_weight=1, rec_weight=0, noise_type=NOISE_TYPE,
                                         noise_intensities=NOISE_INTENSITIES),
