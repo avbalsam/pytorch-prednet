@@ -177,8 +177,8 @@ def plot_dir(model_name, ds_name):
 
 
 if __name__ == "__main__":
-    plot(get_model_by_name('prednet', class_weight=0.1, rec_weight=0.9, nt=10, noise_type='gaussian',
-                           noise_intensities=[0.0]), DATASETS['mnist_frames'])
+    plot(get_model_by_name('prednet', class_weight=0.9, rec_weight=0.1, nt=10, noise_type='gaussian',
+                           noise_intensities=[0.0]), DATASETS['CK'])
     print("Finished plotting prednet no noise\n\n\n", flush=True)
     plot(get_model_by_name('prednet', class_weight=0.1, rec_weight=0.9, nt=10, noise_type='gaussian',
                            noise_intensities=[0.0, 0.25, 0.5]), DATASETS['mnist_frames'])

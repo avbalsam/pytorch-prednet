@@ -3,7 +3,7 @@
 #SBATCH -n 1 # number of tasks to be launched (can't be smaller than -N)
 #SBATCH -c 4 # number of CPU cores associated with one GPU
 #SBATCH --gres=gpu:1 # number of GPUs
-##SBATCH --constraint=high-capacity
+#SBATCH --constraint=high-capacity
 #SBATCH --constraint=32GB
 ##SBATCH --mem=16GB
 #SBATCH --array=1

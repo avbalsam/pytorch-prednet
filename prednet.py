@@ -9,6 +9,10 @@ class PredNet(nn.Module):
     def __init__(self, R_channels, A_channels, nt=5, class_weight=0.1, rec_weight=0.9,
                  noise_type: str = 'gaussian', noise_intensities=None, output_mode="classification"):
         super(PredNet, self).__init__()
+
+        assert output_mode in ["classification", "prediction"], \
+            "Invalid output mode. Choose from [\"classification\", \"prediction\"]"
+
         if noise_intensities is None:
             noise_intensities = [0.0]
         self.classification_steps = None
@@ -46,8 +50,8 @@ class PredNet(nn.Module):
         self.upsample = nn.Upsample(scale_factor=2)
         self.maxpool = nn.MaxPool2d(kernel_size=2, stride=2)
 
-        # Linear layer for classification
-        self.linear = nn.Linear(98304, 8)
+        # Linear layer for classification. Make sure it takes the right number of inputs.
+        self.linear = nn.Linear(1572864, 8)
 
         self.flatten = nn.Flatten()
 
@@ -58,8 +62,6 @@ class PredNet(nn.Module):
 
         self.reset_parameters()
 
-        assert output_mode in ["classification", "prediction"], \
-            "Invalid output mode. Choose from [\"classification\", \"prediction\"]"
         self.output_mode = output_mode
 
     def get_name(self):
