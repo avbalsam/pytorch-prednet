@@ -51,7 +51,7 @@ class PredNet(nn.Module):
         self.maxpool = nn.MaxPool2d(kernel_size=2, stride=2)
 
         # Linear layer for classification. Make sure it takes the right number of inputs.
-        self.linear = nn.Linear(1572864, 8)
+        self.linear = nn.Linear(98304, 8)
 
         self.flatten = nn.Flatten()
 

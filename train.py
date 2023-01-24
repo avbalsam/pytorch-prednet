@@ -3,6 +3,7 @@ import csv
 import os
 
 import torch
+import torchvision.transforms
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
 
@@ -51,10 +52,14 @@ def torch_main(args):
         noise_intensities = model.noise_intensities  # Levels of noise to train with
         noise_type = model.noise_type
 
-        train_dataset = DATASETS[args.data_name](nt, train=True, noise_type=noise_type,
-                                                 noise_intensities=noise_intensities)
-        val_dataset = DATASETS[args.data_name](nt, train=False, noise_type=noise_type,
-                                               noise_intensities=noise_intensities)
+        train_dataset = DATASETS[args.data_name](nt, train=True,
+                                                 transforms=torchvision.transforms.Compose(
+                                                     [
+                                                         torchvision.transforms.RandomHorizontalFlip(),
+                                                         torchvision.transforms.RandomAffine(degrees=10, translate=[0, 0.2], scale=[0.85,1.15]),
+                                                     ]
+                                                 ))
+        val_dataset = DATASETS[args.data_name](nt, train=False, transforms=None)
 
         train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
         val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=True)

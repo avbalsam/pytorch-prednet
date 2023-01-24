@@ -48,10 +48,9 @@ def get_ck_data(source_dir="/Users/avbalsam/Desktop/Predictive_Coding_UROP/CK+/c
     return ck_data
 
 
-class CK:
-    def __init__(self, nt: int, train: bool, data_path: str = "/om2/user/avbalsam/prednet/ck_data/ck_data.hkl", noise_type=None,
-                 noise_intensities=None):
-        assert noise_type is None or noise_intensities is None or noise_intensities == [0.0], "Adding noise is not supported on CK dataset."
+class CK(data.Dataset):
+    def __init__(self, nt: int, train: bool, data_path: str = "/om2/user/avbalsam/prednet/ck_data/ck_data.hkl", transforms=None):
+        self.transforms = transforms
         if os.path.exists(data_path):
             self.data = hkl.load(data_path)
         else:
@@ -72,17 +71,29 @@ class CK:
             frames.insert(0, frames[0])
         frames = frames[self.nt * -1:]
 
+        frames_transformed = list()
+        state = None
+        for frame in frames:
+            image = torchvision.transforms.Resize((128, 128))(torch.from_numpy(frame).unsqueeze(0))
+            if self.transforms is not None:
+                image = self.transforms(image)
+            frames_transformed.append(image)
+
+            if state is None:
+                state = torch.get_rng_state()
+            else:
+                torch.set_rng_state(state)
+
         # Make sure all images have three channels
-        frames = [torch.from_numpy(frame).unsqueeze(0) for frame in frames]
-        if frames[0].size(dim=1) == 1:
-            frames = [frame.repeat(1,3,1,1) for frame in frames]
-        elif frames[0].size(dim=1) == 3:
+        if frames_transformed[0].size(dim=1) == 1:
+            frames_transformed = [frame.repeat(1, 3, 1, 1) for frame in frames_transformed]
+        elif frames_transformed[0].size(dim=1) == 3:
             pass
         else:
-            print(f"Wrong number of channels on input tensor: {frames[0].size()}")
-        frames = torch.cat(frames, 0)
+            print(f"Wrong number of channels on input tensor: {frames_transformed[0].size()}")
+        frames_transformed = torch.cat(frames_transformed, 0)
 
-        return frames, label
+        return frames_transformed, label
 
     def __len__(self):
         return len(self.data)
