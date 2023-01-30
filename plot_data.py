@@ -10,11 +10,14 @@ import seaborn as sns
 import csv
 
 import torch
+import torchvision.transforms
 from matplotlib import pyplot as plt
 from torch.utils.data import DataLoader
 
 from models import MODELS, DATASETS, get_model_by_name
 from utility import get_accuracy
+
+from PIL.Image import Image
 
 
 def plot_epochs(plot_type, dir_name):
@@ -176,7 +179,18 @@ def plot_dir(model_name, ds_name):
     plot(model, dataset)
 
 
+def show_sample_input(dataset, nt):
+    data = dataset(nt, train=True)
+    data_loader = DataLoader(data, batch_size=16, shuffle=True)
+    for (label, frames) in enumerate(data_loader):
+        for i, frame in enumerate(frames[0][0]):
+            img = torchvision.transforms.ToPILImage()(frame[0])
+            Image.show(img)
+        break
+
+
 if __name__ == "__main__":
+    show_sample_input(DATASETS['CK'], nt=10)
     plot(get_model_by_name('prednet', class_weight=0.9, rec_weight=0.1, nt=10, noise_type='gaussian',
                            noise_intensities=[0.0]), DATASETS['CK'])
     print("Finished plotting prednet no noise\n\n\n", flush=True)

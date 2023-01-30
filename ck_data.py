@@ -53,6 +53,8 @@ class CK(data.Dataset):
         self.transforms = transforms
         if os.path.exists(data_path):
             self.data = hkl.load(data_path)
+        elif os.path.exists("/Users/avbalsam/Desktop/Predictive_Coding_UROP/ck_data/ck_data.hkl"):
+            self.data = hkl.load("/Users/avbalsam/Desktop/Predictive_Coding_UROP/ck_data/ck_data.hkl")
         else:
             print("Could not find pickled ck_data file. Compiling data from scratch...")
             self.data = get_ck_data(output_path=data_path)
