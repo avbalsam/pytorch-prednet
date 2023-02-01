@@ -7,6 +7,9 @@ import torchvision.datasets
 from PIL.Image import Image
 
 
+SHOW_PLOT = False
+
+
 def get_ck_data(source_dir="/Users/avbalsam/Desktop/Predictive_Coding_UROP/CK+/cohn-kanade-images",
                 label_dir="/Users/avbalsam/Desktop/Predictive_Coding_UROP/CK+/Emotion",
                 output_path="/om2/user/avbalsam/prednet/ck_data/ck_data.hkl"):
@@ -94,23 +97,24 @@ class CK(data.Dataset):
         else:
             print(f"Wrong number of channels on input tensor: {frames_transformed[0].size()}")
         frames_transformed = torch.cat(frames_transformed, 0)
-        """
-        fig, axes = plt.subplots(1, 10)
-        for i, frame in enumerate(frames_transformed):
-            ax = axes[i]
-            ax.imshow(frame.permute(1, 2, 0).cpu().squeeze())
-            ax.axis('off')
-            ax.set_title(f"{index} {i}")
-        plt.show()
 
-        fig, axes = plt.subplots(1, 10)
-        for i, frame in enumerate(frames):
-            ax = axes[i]
-            ax.imshow(frame[0])
-            ax.axis('off')
-            ax.set_title(f"{index} {i}")
-        plt.show()
-        """
+        if SHOW_PLOT:
+            from matplotlib import pyplot as plt
+            fig, axes = plt.subplots(1, 10)
+            for i, frame in enumerate(frames_transformed):
+                ax = axes[i]
+                ax.imshow(frame.permute(1, 2, 0).cpu().squeeze())
+                ax.axis('off')
+                ax.set_title(f"{index} {i}")
+            plt.show()
+
+            fig, axes = plt.subplots(1, 10)
+            for i, frame in enumerate(frames):
+                ax = axes[i]
+                ax.imshow(frame[0])
+                ax.axis('off')
+                ax.set_title(f"{index} {i}")
+            plt.show()
 
         return frames_transformed, label
 
