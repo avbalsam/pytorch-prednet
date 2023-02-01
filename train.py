@@ -56,7 +56,7 @@ def torch_main(args):
                                                  transforms=torchvision.transforms.Compose(
                                                      [
                                                          torchvision.transforms.RandomHorizontalFlip(),
-                                                         torchvision.transforms.RandomAffine(degrees=10, translate=[0, 0.2], scale=[0.85,1.15]),
+                                                         torchvision.transforms.RandomAffine(degrees=15, translate=[0, 0.3], scale=[0.7, 1.15]),
                                                      ]
                                                  ))
         val_dataset = DATASETS[args.data_name](nt, train=False, transforms=None)

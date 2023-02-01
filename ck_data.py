@@ -51,10 +51,10 @@ def get_ck_data(source_dir="/Users/avbalsam/Desktop/Predictive_Coding_UROP/CK+/c
 class CK(data.Dataset):
     def __init__(self, nt: int, train: bool, data_path: str = "/om2/user/avbalsam/prednet/ck_data/ck_data.hkl", transforms=None):
         self.transforms = transforms
-        if os.path.exists(data_path):
-            self.data = hkl.load(data_path)
-        elif os.path.exists("/Users/avbalsam/Desktop/Predictive_Coding_UROP/ck_data/ck_data.hkl"):
+        if os.path.exists("/Users/avbalsam/Desktop/Predictive_Coding_UROP/ck_data/ck_data.hkl"):
             self.data = hkl.load("/Users/avbalsam/Desktop/Predictive_Coding_UROP/ck_data/ck_data.hkl")
+        elif os.path.exists(data_path):
+            self.data = hkl.load(data_path)
         else:
             print("Could not find pickled ck_data file. Compiling data from scratch...")
             self.data = get_ck_data(output_path=data_path)
@@ -76,15 +76,15 @@ class CK(data.Dataset):
         frames_transformed = list()
         state = None
         for frame in frames:
-            image = torchvision.transforms.Resize((128, 128))(torch.from_numpy(frame).unsqueeze(0))
-            if self.transforms is not None:
-                image = self.transforms(image)
-            frames_transformed.append(image)
-
             if state is None:
                 state = torch.get_rng_state()
             else:
                 torch.set_rng_state(state)
+
+            image = torchvision.transforms.Resize((256, 256))(torch.from_numpy(frame).unsqueeze(0))
+            if self.transforms is not None:
+                image = self.transforms(image)
+            frames_transformed.append(image)
 
         # Make sure all images have three channels
         if frames_transformed[0].size(dim=1) == 1:
@@ -94,6 +94,23 @@ class CK(data.Dataset):
         else:
             print(f"Wrong number of channels on input tensor: {frames_transformed[0].size()}")
         frames_transformed = torch.cat(frames_transformed, 0)
+        """
+        fig, axes = plt.subplots(1, 10)
+        for i, frame in enumerate(frames_transformed):
+            ax = axes[i]
+            ax.imshow(frame.permute(1, 2, 0).cpu().squeeze())
+            ax.axis('off')
+            ax.set_title(f"{index} {i}")
+        plt.show()
+
+        fig, axes = plt.subplots(1, 10)
+        for i, frame in enumerate(frames):
+            ax = axes[i]
+            ax.imshow(frame[0])
+            ax.axis('off')
+            ax.set_title(f"{index} {i}")
+        plt.show()
+        """
 
         return frames_transformed, label
 

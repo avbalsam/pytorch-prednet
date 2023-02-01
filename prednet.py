@@ -1,8 +1,11 @@
+import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
+import torchvision.transforms
 from torch.nn import functional as F
 from convlstmcell import ConvLSTMCell
 from torch.autograd import Variable
+from PIL.Image import Image
 
 
 class PredNet(nn.Module):
@@ -51,7 +54,7 @@ class PredNet(nn.Module):
         self.maxpool = nn.MaxPool2d(kernel_size=2, stride=2)
 
         # Linear layer for classification. Make sure it takes the right number of inputs.
-        self.linear = nn.Linear(98304, 8)
+        self.linear = nn.Linear(393216, 8)
 
         self.flatten = nn.Flatten()
 
@@ -79,6 +82,7 @@ class PredNet(nn.Module):
             cell.reset_parameters()
 
     def forward(self, input, timestep=None):
+
         R_seq = [None] * self.n_layers
         H_seq = [None] * self.n_layers
         E_seq = [None] * self.n_layers
