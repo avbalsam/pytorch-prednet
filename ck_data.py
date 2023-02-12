@@ -62,6 +62,23 @@ class CK(data.Dataset):
             print("Could not find pickled ck_data file. Compiling data from scratch...")
             self.data = get_ck_data(output_path=data_path)
 
+        # Simplify classes by removing sadness and fear and combining anger and contempt, as each of those categories
+        # has a small number of images relating to it.
+        # Labels: 0=anger/contempt, 1=happiness, 2=surprise
+        labelled = list()
+        for d in self.data:
+            if d[1] == 1 or d[1] == 3:
+                # Anger/contempt
+                labelled.append((d[0], 0))
+            elif d[1] == 5:
+                # Happiness
+                labelled.append((d[0], 1))
+            elif d[1] == 7:
+                # Surprise
+                labelled.append((d[0], 2))
+
+        self.data = labelled
+
         if train:
             self.data = self.data[:int(len(self.data)*(7/8))]
         else:
@@ -75,6 +92,10 @@ class CK(data.Dataset):
         while len(frames) < self.nt:
             frames.insert(0, frames[0])
         frames = frames[self.nt * -1:]
+
+        # Replace all frames with last frame in sequence
+        for i in range(len(frames)):
+            frames[i] = frames[-1]
 
         frames_transformed = list()
         state = None

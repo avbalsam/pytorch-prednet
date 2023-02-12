@@ -54,7 +54,7 @@ class PredNet(nn.Module):
         self.maxpool = nn.MaxPool2d(kernel_size=2, stride=2)
 
         # Linear layer for classification. Make sure it takes the right number of inputs.
-        self.linear = nn.Linear(393216, 8)
+        self.linear = nn.Linear(393216, 3)
 
         self.flatten = nn.Flatten()
 
@@ -82,7 +82,6 @@ class PredNet(nn.Module):
             cell.reset_parameters()
 
     def forward(self, input, timestep=None):
-
         R_seq = [None] * self.n_layers
         H_seq = [None] * self.n_layers
         E_seq = [None] * self.n_layers
@@ -125,8 +124,14 @@ class PredNet(nn.Module):
                 conv = getattr(self, 'conv{}'.format(l))
 
                 A_hat = conv(R_seq[l])
-                if l==0:
+                if l == 0:
                     frame_prediction = A_hat
+                    # Show reconstructed images
+                    """
+                    for i in range(batch_size):
+                        img = torchvision.transforms.ToPILImage()(A_hat[i])
+                        Image.show(img)
+                    """
                 pos = F.relu(A_hat - A)
                 neg = F.relu(A - A_hat)
 
@@ -170,7 +175,7 @@ class PredNet(nn.Module):
 
     def calculate_loss(self, prediction, labels) -> float:
         # Create a tensor of label arrays to compare with classification tensor
-        label_arr = [[float(label == labels[i]) for label in range(8)] for i in range(16 if len(labels) > 16 else len(labels))]
+        label_arr = [[float(label == labels[i]) for label in range(3)] for i in range(16 if len(labels) > 16 else len(labels))]
         class_error = list()
         for c in range(len(prediction)):
             label_tensor = torch.FloatTensor(label_arr[c]).to(self.device)
