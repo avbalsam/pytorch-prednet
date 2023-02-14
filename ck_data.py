@@ -6,7 +6,6 @@ import torch.utils.data as data
 import torchvision.datasets
 from PIL.Image import Image
 
-
 SHOW_PLOT = False
 
 
@@ -53,6 +52,7 @@ def get_ck_data(source_dir="/Users/avbalsam/Desktop/Predictive_Coding_UROP/CK+/c
 
 class CK(data.Dataset):
     def __init__(self, nt: int, train: bool, data_path: str = "/om2/user/avbalsam/prednet/ck_data/ck_data.hkl", transforms=None):
+        self.half = None
         self.transforms = transforms
         if os.path.exists("/Users/avbalsam/Desktop/Predictive_Coding_UROP/ck_data/ck_data.hkl"):
             self.data = hkl.load("/Users/avbalsam/Desktop/Predictive_Coding_UROP/ck_data/ck_data.hkl")
@@ -85,6 +85,19 @@ class CK(data.Dataset):
             self.data = self.data[int(len(self.data)*(7/8)):]
         self.nt = nt
 
+    def get_half(self):
+        return self.half
+
+    def set_half(self, half):
+        """
+        Choose a half of the image to use. The rest will be blacked out. If self.half is set to None (which it is by
+        default), the whole image will be used.
+
+        :param half: Either 'top' or 'bottom'
+        :return: None
+        """
+        self.half = half
+
     def __getitem__(self, index):
         frames, label = self.data[index]
 
@@ -100,14 +113,32 @@ class CK(data.Dataset):
         frames_transformed = list()
         state = None
         for frame in frames:
+            image = torchvision.transforms.Resize((256, 256))(torch.from_numpy(frame).unsqueeze(0))
+
+            # If we are supposed to get the top or bottom half of the image, do that now
+            if self.half is not None:
+                if self.half == 'top':
+                    image = torch.cat(
+                        (
+                            image[:, :, :int(image.shape[2] / 2), :],
+                            torch.zeros(image.shape[0], image.shape[1], int(image.shape[2] / 2), image.shape[3])
+                        ), dim=2)
+                elif self.half == 'bottom':
+                    image = torch.cat(
+                        (
+                            torch.zeros(image.shape[0], image.shape[1], int(image.shape[2] / 2), image.shape[3]),
+                            image[:, :, int(image.shape[2] / 2):, :]
+                        ), dim=2)
+
+            # Ensure that the same transformation is applied to all frames by resetting the rng state
             if state is None:
                 state = torch.get_rng_state()
             else:
                 torch.set_rng_state(state)
-
-            image = torchvision.transforms.Resize((256, 256))(torch.from_numpy(frame).unsqueeze(0))
             if self.transforms is not None:
                 image = self.transforms(image)
+
+            # Append the transformed image to the list
             frames_transformed.append(image)
 
         # Make sure all images have three channels
@@ -122,15 +153,15 @@ class CK(data.Dataset):
         if SHOW_PLOT:
             from matplotlib import pyplot as plt
             fig, axes = plt.subplots(1, 10)
-            for i, frame in enumerate(frames_transformed):
+            for i, frame in enumerate(frames):
                 ax = axes[i]
-                ax.imshow(frame.permute(1, 2, 0).cpu().squeeze())
+                ax.imshow(torch.from_numpy(frame).permute(1, 2, 0).cpu().squeeze())
                 ax.axis('off')
                 ax.set_title(f"{index} {i}")
             plt.show()
 
             fig, axes = plt.subplots(1, 10)
-            for i, frame in enumerate(frames):
+            for i, frame in enumerate(frames_transformed):
                 ax = axes[i]
                 ax.imshow(frame[0])
                 ax.axis('off')
