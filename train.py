@@ -94,7 +94,6 @@ def torch_main(args):
         correct_guesses = 0
         optimizer = lr_scheduler(optimizer, epoch)
 
-        # TODO: Find some way to make this completely model independent
         for i, (inputs, labels) in enumerate(train_loader):
             # inputs = inputs.permute(0, 1, 4, 2, 3)  # batch x time_steps x channel x width x height
             inputs = Variable(inputs.to(device))
