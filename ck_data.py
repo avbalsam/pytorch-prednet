@@ -1,4 +1,6 @@
 import os
+import random
+
 import hickle as hkl
 
 import torch
@@ -26,7 +28,7 @@ def get_ck_data(source_dir="/Users/avbalsam/Desktop/Predictive_Coding_UROP/CK+/c
                             # Resize image and convert to RGB
                             img = torchvision.io.read_image(f"{source_path}/{frame_file}")
                             if img.size(dim=0) == 1:
-                                rgb_like = torchvision.transforms.functional.rgb_to_grayscale(img.repeat(3,1,1))
+                                rgb_like = torchvision.transforms.functional.rgb_to_grayscale(img.repeat(3, 1, 1))
                             else:
                                 rgb_like = img
                             resized = torchvision.transforms.Resize((512, 512))(rgb_like)
@@ -51,38 +53,37 @@ def get_ck_data(source_dir="/Users/avbalsam/Desktop/Predictive_Coding_UROP/CK+/c
 
 
 class CK(data.Dataset):
-    def __init__(self, nt: int, train: bool, data_path: str = "/om2/user/avbalsam/prednet/ck_data/ck_data.hkl", transforms=None):
+    def __init__(self, nt: int, train: bool, data_path: str = "/om2/user/avbalsam/prednet/ck_data/ck_data.hkl",
+                 transforms=None):
+        self.labels = [0, 1, 2, 3, 4, 5, 6, 7]
+
         self.half = None
         self.transforms = transforms
         if os.path.exists("/Users/avbalsam/Desktop/Predictive_Coding_UROP/ck_data/ck_data.hkl"):
-            self.data = hkl.load("/Users/avbalsam/Desktop/Predictive_Coding_UROP/ck_data/ck_data.hkl")
+            raw_data = hkl.load("/Users/avbalsam/Desktop/Predictive_Coding_UROP/ck_data/ck_data.hkl")
         elif os.path.exists(data_path):
-            self.data = hkl.load(data_path)
+            raw_data = hkl.load(data_path)
         else:
             print("Could not find pickled ck_data file. Compiling data from scratch...")
-            self.data = get_ck_data(output_path=data_path)
+            raw_data = get_ck_data(output_path=data_path)
 
-        # Simplify classes by removing sadness and fear and combining anger and contempt, as each of those categories
-        # has a small number of images relating to it.
-        # Labels: 0=anger/contempt, 1=happiness, 2=surprise
-        labelled = list()
-        for d in self.data:
-            if d[1] == 1 or d[1] == 3:
-                # Anger/contempt
-                labelled.append((d[0], 0))
-            elif d[1] == 5:
-                # Happiness
-                labelled.append((d[0], 1))
-            elif d[1] == 7:
-                # Surprise
-                labelled.append((d[0], 2))
+        classes = dict()
+        for frames, label in raw_data:
+            if label in classes:
+                classes[label].append((frames, label))
+            else:
+                classes[label] = [(frames, label)]
 
-        self.data = labelled
+        for _class in classes.values():
+            random.shuffle(_class)
+        class_count = {key: int(len(value) * (0.80 if train else 0.20)) for (key, value) in classes.items()}
 
-        if train:
-            self.data = self.data[:int(len(self.data)*(7/8))]
-        else:
-            self.data = self.data[int(len(self.data)*(7/8)):]
+        self.data = list()
+        for key in classes.keys():
+            while class_count[key] > 0:
+                self.data.append(classes[key].pop(0))
+                class_count[key] -= 1
+
         self.nt = nt
 
     def get_half(self):
@@ -173,6 +174,12 @@ class CK(data.Dataset):
     def __len__(self):
         return len(self.data)
 
+    def get_labels(self):
+        """
+        Returns a list of all possible labels for this dataset.
+        """
+        return self.labels
+
 
 class CKStatic(CK):
     def __getitem__(self, index):
@@ -183,5 +190,6 @@ if __name__ == "__main__":
     # /om2/user/avbalsam/prednet/ck_data/ck_data.hkl
     # /Users/avbalsam/Desktop/Predictive_Coding_UROP/prednet/ck_data/ck_data.hkl
     c = CK(nt=10, train=True)
-    Image.show(torchvision.transforms.ToPILImage()(torch.from_numpy(c[0][0])))
-
+    print(len(c))
+    print([[x[1] for x in c.data].count(i) for i in range(8)])
+    # Image.show(torchvision.transforms.ToPILImage()(torch.from_numpy(c[0][0])))

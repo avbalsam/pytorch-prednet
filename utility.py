@@ -46,6 +46,5 @@ def get_accuracy(val_loader, model, timestep=None):
             else:
                 wrong_guesses.append((labels[j], _class))
 
-        if i % 10 == 0:
-            print("Timestep: {}, Step: {}, Accuracy: {}".format("avg" if timestep is None else timestep, i, accuracy))
+        print("Timestep: {}, Step: {}, Accuracy: {}".format("avg" if timestep is None else timestep, i, accuracy))
     return accuracy

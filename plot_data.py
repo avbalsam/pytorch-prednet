@@ -52,12 +52,9 @@ def plot_epochs(plot_type, dir_name):
         )
 
 
-def plot_batch_across_timesteps(model, dataset, noise_type=None, noise_intensities=None):
-    if noise_type is None or noise_intensities is None:
-        noise_type = model.noise_type
-        noise_intensities = model.noise_intensities
+def plot_batch_across_timesteps(model, dataset):
     nt = model.nt
-    ds = dataset(nt, train=False, noise_type=noise_type, noise_intensities=noise_intensities)
+    ds = dataset(nt, train=False)
     val_loader = DataLoader(ds, batch_size=16, shuffle=True)
 
     batch_dict = dict()
@@ -68,7 +65,7 @@ def plot_batch_across_timesteps(model, dataset, noise_type=None, noise_intensiti
             if label not in batch_dict.keys():
                 batch_dict[label] = inputs[l]
 
-    labels = list(batch_dict.keys())
+    labels = ds.get_labels()
 
     data = [['timestep', 'predicted_label', 'confidence']]
 
@@ -76,16 +73,22 @@ def plot_batch_across_timesteps(model, dataset, noise_type=None, noise_intensiti
     #     shutil.rmtree(f"./{model.get_name()}/input_img_over_timesteps/")
 
     for label in labels:
+        if label not in batch_dict:
+            continue
         input = batch_dict[label]
         batch_list = [input] * 16
         batch_tensor = torch.stack(batch_list)
         for timestep in range(nt):
+            print(f"Plotting batch on timestep {timestep}...")
             classification = model(batch_tensor, timestep)
             _class = classification[0].detach().cpu().numpy()
             _class = [i - min(_class) for i in _class]
             for c in range(len(_class)):
                 # ['timestep', 'predicted_label', 'confidence']
-                data.append([timestep, sorted(labels)[c], _class[c]])
+                if c == len(labels):
+                    print(f"{c}: {labels} {_class}")
+                else:
+                    data.append([timestep, sorted(labels)[c], _class[c]])
 
             output_path = f"./{model.get_name()}/input_img_over_timesteps/label_{label}"
             if not os.path.exists(output_path):
@@ -115,9 +118,9 @@ def plot_timesteps(model, dataset, plot_type):
     valid_plot_types = ['timestep accuracy']
     assert plot_type in valid_plot_types, f"Please pick a valid plot type from {valid_plot_types}"
     data = [["Timestep", "Accuracy"]]
+    ds = dataset(nt, train=False)
+    val_loader = DataLoader(ds, batch_size=16, shuffle=True)
     for timestep in range(nt):
-        ds = dataset(nt, train=False, noise_type=model.noise_type, noise_intensities=model.noise_intensities)
-        val_loader = DataLoader(ds, batch_size=16, shuffle=True)
         accuracy = get_accuracy(val_loader, model, timestep)
         print(f"Timestep: {timestep}, Accuracy: {accuracy}")
         data.append([timestep, accuracy])
@@ -156,18 +159,18 @@ def plot(model, dataset):
     model.to(device)
     model.load_state_dict(torch.load(f"{dir_name}/model.pt", map_location=device))
 
-    plot_batch_across_timesteps(model, dataset)
-
     print(f"Plotting loss and accuracy over epochs for model {dir_name}...")
     plot_epochs('loss', dir_name).savefig(f"{dir_name}/loss_plot.png")
     plot_epochs('accuracy', dir_name).savefig(f"{dir_name}/accuracy_plot.png")
 
-    print(f"Plotting accuracy over noise levels for model {dir_name}...")
-    plot_noise_levels(model, dataset).savefig(f"{dir_name}/noise_level_accuracy_plot.png")
+    # print(f"Plotting accuracy over noise levels for model {dir_name}...")
+    # plot_noise_levels(model, dataset).savefig(f"{dir_name}/noise_level_accuracy_plot.png")
 
     print(f"Plotting accuracy over timestep for model {dir_name}...")
     plot_timesteps(model, dataset, 'timestep accuracy').savefig(
         f"{dir_name}/timestep_accuracy_plot.png")
+
+    plot_batch_across_timesteps(model, dataset)
 
     print(f"Finished plotting {dir_name}!\n\n")
 
@@ -190,7 +193,7 @@ def show_sample_input(dataset, nt):
 
 
 if __name__ == "__main__":
-    show_sample_input(DATASETS['CK'], nt=10)
+    # show_sample_input(DATASETS['CK'], nt=10)
     plot(get_model_by_name('prednet', class_weight=0.9, rec_weight=0.1, nt=10, noise_type='gaussian',
                            noise_intensities=[0.0]), DATASETS['CK'])
     print("Finished plotting prednet no noise\n\n\n", flush=True)

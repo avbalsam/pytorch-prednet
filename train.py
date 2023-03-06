@@ -38,7 +38,7 @@ def torch_main(args):
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
     if 'prednet' in args.model_name:
-        num_epochs = 150
+        num_epochs = 200
         batch_size = 16
         lr = 0.0001  # if epoch < 75 else 0.0001
 
