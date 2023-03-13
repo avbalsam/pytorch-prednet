@@ -5,7 +5,7 @@
 #SBATCH --gres=gpu:1 # number of GPUs
 ##SBATCH --constraint=high-capacity
 ##SBATCH --constraint=32GB
-##SBATCH --mem=16GB
+#SBATCH --mem=64GB
 #SBATCH --array=1
 #SBATCH -D /om2/user/avbalsam/prednet/logs
 cd /om2/user/avbalsam/prednet

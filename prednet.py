@@ -161,12 +161,11 @@ class PredNet(nn.Module):
         rec_error = torch.mean(rec_error)
 
         self.rec_error = rec_error
-        self.classification_steps = classification_steps
 
         if timestep is None:
-            classification = sum(self.classification_steps) / len(self.classification_steps)
+            classification = sum(classification_steps) / len(classification_steps)
         else:
-            classification = self.classification_steps[timestep]
+            classification = classification_steps[timestep]
 
         if self.output_mode == "classification":
             return classification

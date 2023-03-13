@@ -55,7 +55,7 @@ def plot_epochs(plot_type, dir_name):
 def plot_batch_across_timesteps(model, dataset):
     nt = model.nt
     ds = dataset(nt, train=False)
-    val_loader = DataLoader(ds, batch_size=16, shuffle=True)
+    val_loader = DataLoader(ds, batch_size=4, shuffle=True)
 
     batch_dict = dict()
 
@@ -119,7 +119,7 @@ def plot_timesteps(model, dataset, plot_type):
     assert plot_type in valid_plot_types, f"Please pick a valid plot type from {valid_plot_types}"
     data = [["Timestep", "Accuracy"]]
     ds = dataset(nt, train=False)
-    val_loader = DataLoader(ds, batch_size=16, shuffle=True)
+    val_loader = DataLoader(ds, batch_size=4, shuffle=True)
     for timestep in range(nt):
         accuracy = get_accuracy(val_loader, model, timestep)
         print(f"Timestep: {timestep}, Accuracy: {accuracy}")
@@ -159,6 +159,8 @@ def plot(model, dataset):
     model.to(device)
     model.load_state_dict(torch.load(f"{dir_name}/model.pt", map_location=device))
 
+    plot_batch_across_timesteps(model, dataset)
+
     print(f"Plotting loss and accuracy over epochs for model {dir_name}...")
     plot_epochs('loss', dir_name).savefig(f"{dir_name}/loss_plot.png")
     plot_epochs('accuracy', dir_name).savefig(f"{dir_name}/accuracy_plot.png")
@@ -169,8 +171,6 @@ def plot(model, dataset):
     print(f"Plotting accuracy over timestep for model {dir_name}...")
     plot_timesteps(model, dataset, 'timestep accuracy').savefig(
         f"{dir_name}/timestep_accuracy_plot.png")
-
-    plot_batch_across_timesteps(model, dataset)
 
     print(f"Finished plotting {dir_name}!\n\n")
 
