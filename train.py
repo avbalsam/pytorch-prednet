@@ -7,9 +7,9 @@ import torchvision.transforms
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
 
+import models
 from plot_data import plot
 from utility import get_accuracy
-from models import MODELS, DATASETS
 
 
 def parse_args():
@@ -27,9 +27,6 @@ def parse_args():
 
 
 def torch_main(args):
-    assert args.model_name in MODELS.keys(), f'Please choose a valid model name from {MODELS.keys()}'
-    assert args.data_name in DATASETS.keys(), f'Please choose a valid dataset from {DATASETS.keys()}'
-
     if torch.cuda.is_available():
         print('Using GPU.')
 
@@ -42,34 +39,43 @@ def torch_main(args):
 
         # For exclusively feedforward network, use nt=1
 
-        model = MODELS[args.model_name]
+        model = models.get_model_by_name(args.model_name)
 
         nt = model.nt
 
-        noise_intensities = model.noise_intensities  # Levels of noise to train with
-        noise_type = model.noise_type
+        transforms = torchvision.transforms.Compose(
+            [
+                torchvision.transforms.RandomHorizontalFlip(),
+                torchvision.transforms.RandomAffine(degrees=15, translate=[0, 0.3], scale=[0.7, 1.15]),
+            ]
+        )
 
-        train_dataset = DATASETS[args.data_name](nt, train=True,
+        train_dataset = models.get_dataset_by_name(name=args.data_name, nt=nt,
+                                                   train=True, transforms=transforms, half=None)
+        val_dataset = models.get_dataset_by_name(name=args.data_name, nt=nt,
+                                                 train=False, transforms=None, half=None)
+        """train_dataset = DATASETS[args.data_name](nt, train=True,
                                                  transforms=torchvision.transforms.Compose(
                                                      [
                                                          torchvision.transforms.RandomHorizontalFlip(),
-                                                         torchvision.transforms.RandomAffine(degrees=15, translate=[0, 0.3], scale=[0.7, 1.15]),
+                                                         torchvision.transforms.RandomAffine(degrees=15,
+                                                                                             translate=[0, 0.3],
+                                                                                             scale=[0.7, 1.15]),
                                                      ]
-                                                 ))
-        val_dataset = DATASETS[args.data_name](nt, train=False, transforms=None)
+                                                 )
+                                                 )
+        val_dataset = DATASETS[args.data_name](nt, train=False, transforms=None)"""
 
         train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
         val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=True)
 
         model.to(device)
-        dir_name = model.get_name()
+        dir_name = f"model:{model.get_name()}:dataset:{train_dataset.get_name()}"
 
         print(f"Model: {model.get_name()}\n"
               f"Epochs: {num_epochs}\n"
               f"Learning rate: {lr}\n"
-              f"Time steps: {nt}\n"
-              f"Noise type: {noise_type}\n"
-              f"Noise intensities: {noise_intensities}\n\n\n", flush=True)
+              f"Time steps: {nt}\n\n\n", flush=True)
 
         def lr_scheduler(optimizer, epoch):
             if epoch < num_epochs // 2:
@@ -156,7 +162,7 @@ def torch_main(args):
                f'./{dir_name}/model.pt')
     print(f"Finished training model {dir_name}. Plotting data...")
 
-    plot(model, DATASETS[args.data_name])
+    plot(dir_name, model, val_dataset)
 
 
 if __name__ == '__main__':

@@ -16,7 +16,7 @@ def get_ck_data(source_dir="/Users/avbalsam/Desktop/Predictive_Coding_UROP/CK+/c
                 output_path="/om2/user/avbalsam/prednet/ck_data/ck_data.hkl"):
     ck_data = list()
 
-    # TODO: Make network able to train on identification
+    # TODO: Make network able to train on identification task
     for subject in os.listdir(source_dir):
         subject_path = f"{source_dir}/{subject}"
         if not os.path.isfile(subject_path):
@@ -87,10 +87,13 @@ class CK(data.Dataset):
 
         self.nt = nt
 
+    def get_name(self):
+        return f"CK+_{'no' if self.half is None else self.half}_half"
+
     def get_half(self):
         return self.half
 
-    def set_half(self, half):
+    def set_half(self, half: str):
         """
         Choose a half of the image to use. The rest will be blacked out. If self.half is set to None (which it is by
         default), the whole image will be used.
@@ -189,7 +192,7 @@ class CKStatic(CK):
     change the n_frame parameter.
     To ensure compatibility with the prednet, the getitem
     method of this class repeats one frame self.nt times."""
-    n_frame = -1
+    n_frame = 0
 
     def set_n_frame(self, n_frame):
         self.n_frame = n_frame
@@ -197,6 +200,9 @@ class CKStatic(CK):
     def __getitem__(self, index):
         frames, label = super().__getitem__(index)
         return frames[self.n_frame].repeat(self.nt, 1, 1, 1), label
+
+    def get_name(self):
+        return f"{super().get_name()}_frame_{self.n_frame}"
 
 
 if __name__ == "__main__":

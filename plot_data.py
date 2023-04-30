@@ -14,7 +14,7 @@ import torchvision.transforms
 from matplotlib import pyplot as plt
 from torch.utils.data import DataLoader
 
-from models import MODELS, DATASETS, get_model_by_name
+from models import get_model_by_name, get_dataset_by_name
 from utility import get_accuracy
 
 from PIL.Image import Image
@@ -150,30 +150,23 @@ def plot_noise_levels(model, dataset, noise_type='gaussian', noise_levels=None):
     )
 
 
-def plot(model, dataset, half=""):
-    assert half in ["", "bottom", "top"], "Please choose a valid half"
-
-    dir_name = model.get_name()
+def plot(dir_name, model, dataset):
 
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     model.to(device)
     model.load_state_dict(torch.load(f"{dir_name}/model.pt", map_location=device))
 
-    print(f"Plotting loss and accuracy over epochs for model {dir_name}...")
+    print(f"Plotting loss and accuracy over epochs for model {model.get_name()} and dataset {dataset.get_name()}...")
     plot_epochs('loss', dir_name).savefig(f"{dir_name}/loss_plot.png")
     plot_epochs('accuracy', dir_name).savefig(f"{dir_name}/accuracy_plot.png")
 
     # Deprecated
     # print(f"Plotting accuracy over noise levels for model {dir_name}...")
     # plot_noise_levels(model, dataset).savefig(f"{dir_name}/noise_level_accuracy_plot.png")
-
-    ds = dataset(model.nt, train=False)
-    if half:
-        ds.set_half(half)
-    val_loader = DataLoader(ds, batch_size=4, shuffle=True)
+    val_loader = DataLoader(dataset, batch_size=4, shuffle=True)
     print(f"Plotting accuracy over timestep for model {dir_name}...")
     plot_timesteps(model, val_loader, 'timestep accuracy').savefig(
-        f"{dir_name}/timestep_accuracy_plot_{half}.png")
+        f"{dir_name}/timestep_accuracy_plot_{dataset.get_half()}.png")
 
     # Due to a memory leak, the following function is broken
     # plot_batch_across_timesteps(model, dataset)
@@ -181,11 +174,27 @@ def plot(model, dataset, half=""):
     print(f"Finished plotting {dir_name}!\n\n")
 
 
-def plot_dir(model_name, ds_name):
-    model = MODELS[model_name]
-    dataset = DATASETS[ds_name]
+def plot_model_dataset(dir_name, model_name, ds_name, nt, class_weight, rec_weight, half=None):
+    """
+    Plots important information about a model-dataset combination,
+    given specifications of the model and dataset
 
-    plot(model, dataset)
+    :param dir_name: Directory in which this model is contained
+    :param model_name: Name of the model
+    :param ds_name: Name of the dataset. If CKStatic, make sure to include the frame number as the last two characters
+    of the name.
+    :param nt: Number of timesteps (frames) to test with
+    :param class_weight: Weight given to classification loss
+    :param rec_weight: Weight given to reconstruction loss
+    :param half: Which half of the image to use (either 'top', 'bottom' or None)
+    :return: None, plots model and dataset
+    """
+    model = get_model_by_name(model_name, nt=nt, class_weight=class_weight, rec_weight=rec_weight)
+
+    # For now, we won't apply any transforms when testing the model except taking the specified half
+    dataset = get_dataset_by_name(ds_name, nt=nt, train=False, transforms=None, half=half)
+
+    plot(dir_name, model, dataset)
 
 
 def show_sample_input(dataset, nt):
@@ -199,18 +208,19 @@ def show_sample_input(dataset, nt):
 
 
 if __name__ == "__main__":
+    plot_model_dataset('prednet_10_c0.9_r0.1_dynamic', 'prednet', 'CK', nt=10, class_weight=0.9, rec_weight=0.1, half=None)
     # show_sample_input(DATASETS['CK'], nt=10)
-    plot(get_model_by_name('prednet', class_weight=0.9, rec_weight=0.1, nt=10, noise_type='gaussian',
-                           noise_intensities=[0.0]), DATASETS['CKStatic'], 'bottom')
-    #plot(get_model_by_name('prednet', class_weight=0.9, rec_weight=0.1, nt=10, noise_type='gaussian',
+    # plot(get_model_by_name('prednet', class_weight=0.9, rec_weight=0.1, nt=10, noise_type='gaussian',
+    #                       noise_intensities=[0.0]), DATASETS['CKStatic'], 'bottom')
+    # plot(get_model_by_name('prednet', class_weight=0.9, rec_weight=0.1, nt=10, noise_type='gaussian',
     #                       noise_intensities=[0.0]), DATASETS['CKStatic'], 'top')
-    #plot(get_model_by_name('prednet', class_weight=0.9, rec_weight=0.1, nt=10, noise_type='gaussian',
+    # plot(get_model_by_name('prednet', class_weight=0.9, rec_weight=0.1, nt=10, noise_type='gaussian',
     #                       noise_intensities=[0.0]), DATASETS['CKStatic'], '')
-    #print("Finished plotting prednet no noise\n\n\n", flush=True)
-    #plot(get_model_by_name('prednet', class_weight=0.1, rec_weight=0.9, nt=10, noise_type='gaussian',
+    # print("Finished plotting prednet no noise\n\n\n", flush=True)
+    # plot(get_model_by_name('prednet', class_weight=0.1, rec_weight=0.9, nt=10, noise_type='gaussian',
     #                       noise_intensities=[0.0, 0.25, 0.5]), DATASETS['mnist_frames'])
-    #print("Finished plotting prednet with noise\n\n\n", flush=True)
-    #plot(get_model_by_name('prednet_additive', class_weight=0.1, rec_weight=0.9, nt=10, noise_type='gaussian',
+    # print("Finished plotting prednet with noise\n\n\n", flush=True)
+    # plot(get_model_by_name('prednet_additive', class_weight=0.1, rec_weight=0.9, nt=10, noise_type='gaussian',
     #                       noise_intensities=[0.0, 0.25, 0.5]), DATASETS['mnist_frames'])
     # exit(0)
     # model_names = [name for name in MODELS.keys()]

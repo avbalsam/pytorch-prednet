@@ -1,23 +1,18 @@
 import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
-import torchvision.transforms
 from torch.nn import functional as F
 from convlstmcell import ConvLSTMCell
 from torch.autograd import Variable
-from PIL.Image import Image
 
 
 class PredNet(nn.Module):
-    def __init__(self, R_channels, A_channels, nt=5, class_weight=0.1, rec_weight=0.9,
-                 noise_type: str = 'gaussian', noise_intensities=None, output_mode="classification"):
+    def __init__(self, R_channels, A_channels, nt=5, class_weight=0.1, rec_weight=0.9, output_mode="classification"):
         super(PredNet, self).__init__()
 
         assert output_mode in ["classification", "prediction"], \
             "Invalid output mode. Choose from [\"classification\", \"prediction\"]"
 
-        if noise_intensities is None:
-            noise_intensities = [0.0]
         self.classification_steps = None
 
         self.rec_error = None
@@ -31,10 +26,6 @@ class PredNet(nn.Module):
         self.nt = nt
         self.class_weight = class_weight
         self.rec_weight = rec_weight
-
-        # Type of noise and array of intensities to generate it at
-        self.noise_type = noise_type
-        self.noise_intensities = [0.0] if noise_intensities is None else noise_intensities
 
         self.r_channels = R_channels + (0,)  # for convenience
         self.a_channels = A_channels
@@ -69,8 +60,6 @@ class PredNet(nn.Module):
 
     def get_name(self):
         name = f"prednet_{self.nt}_c{self.class_weight}_r{self.rec_weight}"
-        if self.noise_intensities is not None and self.noise_intensities != [0.0]:
-            name += f"_{self.noise_type}_{self.noise_intensities}"
         return name
 
     def get_device(self):
