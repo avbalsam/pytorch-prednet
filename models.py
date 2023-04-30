@@ -1,6 +1,6 @@
 import torch
 
-from ck_data import CK
+from ck_data import CK, CKStatic
 from controls.prednet_additive import PredNetAdditive
 from controls.prednet_feedforward import PredNetFF
 from mnist_data_prednet import MNIST_Frames
@@ -42,4 +42,4 @@ MODELS = {
     'prednet_cw': PredNet(R_channels=R_channels, A_channels=A_channels, nt=nt,
                           class_weight=0.5, rec_weight=0.5, noise_type=NOISE_TYPE, noise_intensities=NOISE_INTENSITIES),
 }
-DATASETS = {'mnist_frames': MNIST_Frames, 'CK': CK}
+DATASETS = {'mnist_frames': MNIST_Frames, 'CK': CK, 'CKStatic': CKStatic}

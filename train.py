@@ -30,22 +30,19 @@ def torch_main(args):
     assert args.model_name in MODELS.keys(), f'Please choose a valid model name from {MODELS.keys()}'
     assert args.data_name in DATASETS.keys(), f'Please choose a valid dataset from {DATASETS.keys()}'
 
-    version = args.version
-
     if torch.cuda.is_available():
         print('Using GPU.')
 
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
     if 'prednet' in args.model_name:
-        num_epochs = 200
+        num_epochs = 150
         batch_size = 16
         lr = 0.0001  # if epoch < 75 else 0.0001
 
         # For exclusively feedforward network, use nt=1
 
         model = MODELS[args.model_name]
-
 
         nt = model.nt
 

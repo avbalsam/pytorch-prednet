@@ -16,6 +16,7 @@ def get_ck_data(source_dir="/Users/avbalsam/Desktop/Predictive_Coding_UROP/CK+/c
                 output_path="/om2/user/avbalsam/prednet/ck_data/ck_data.hkl"):
     ck_data = list()
 
+    # TODO: Make network able to train on identification
     for subject in os.listdir(source_dir):
         subject_path = f"{source_dir}/{subject}"
         if not os.path.isfile(subject_path):
@@ -182,14 +183,24 @@ class CK(data.Dataset):
 
 
 class CKStatic(CK):
+    """Access repeated static images from CK+ dataset,
+    to use as a control.
+    To choose which frame of the video sequences to access,
+    change the n_frame parameter.
+    To ensure compatibility with the prednet, the getitem
+    method of this class repeats one frame self.nt times."""
+    n_frame = -1
+
+    def set_n_frame(self, n_frame):
+        self.n_frame = n_frame
+
     def __getitem__(self, index):
-        return super().__getitem__(index)[0].repeat(self.nt, 3, 1, 1)
+        frames, label = super().__getitem__(index)
+        return frames[self.n_frame].repeat(self.nt, 1, 1, 1), label
 
 
 if __name__ == "__main__":
+    pass
     # /om2/user/avbalsam/prednet/ck_data/ck_data.hkl
     # /Users/avbalsam/Desktop/Predictive_Coding_UROP/prednet/ck_data/ck_data.hkl
-    c = CK(nt=10, train=True)
-    print(len(c))
-    print([[x[1] for x in c.data].count(i) for i in range(8)])
     # Image.show(torchvision.transforms.ToPILImage()(torch.from_numpy(c[0][0])))
