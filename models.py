@@ -53,9 +53,9 @@ def get_dataset_by_name(name, nt, train, transforms, half):
     :return: The dataset we want
     """
     if name == 'mnist_frames':
-        return MNIST_Frames(nt, train, transforms)
+        return MNIST_Frames(nt=nt, train=train)
     elif name == 'CK':
-        return CK(nt, train, transforms)
+        return CK(nt=nt, train=train, transforms=transforms)
     elif 'CKStatic' in name:
         # The last characters in the name string should be the number frame to get
         for i in range(len(name)):
@@ -68,7 +68,7 @@ def get_dataset_by_name(name, nt, train, transforms, half):
             raise NameError("Invalid CKStatic dataset name. "
                             "Dataset names should end with a "
                             "frame number specifying the frame to get.")
-        ds = CKStatic(nt, train, transforms)
+        ds = CKStatic(nt=nt, train=train, transforms=transforms)
         ds.set_n_frame(n_frame)
         ds.set_half(half)
         return ds

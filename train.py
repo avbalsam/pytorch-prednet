@@ -72,7 +72,7 @@ def torch_main(args):
         model.to(device)
         dir_name = f"model:{model.get_name()}:dataset:{train_dataset.get_name()}"
 
-        print(f"Model: {model.get_name()}\n"
+        print(f"Model: {dir_name}\n"
               f"Epochs: {num_epochs}\n"
               f"Learning rate: {lr}\n"
               f"Time steps: {nt}\n\n\n", flush=True)
@@ -162,7 +162,7 @@ def torch_main(args):
                f'./{dir_name}/model.pt')
     print(f"Finished training model {dir_name}. Plotting data...")
 
-    plot(dir_name, model, val_dataset)
+    # plot(dir_name, model, val_dataset)
 
 
 if __name__ == '__main__':
