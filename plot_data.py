@@ -5,6 +5,7 @@ import shutil
 
 import pandas
 import pandas as pd
+import scipy.special
 import seaborn as sns
 
 import csv
@@ -12,10 +13,11 @@ import csv
 import torch
 import torchvision.transforms
 from matplotlib import pyplot as plt
+from torch.autograd import Variable
 from torch.utils.data import DataLoader
 
 from models import get_model_by_name, get_dataset_by_name
-from utility import get_accuracy
+from utility import get_accuracy, get_reconstructed_images
 
 from PIL.Image import Image
 
@@ -152,10 +154,6 @@ def plot_noise_levels(model, dataset, noise_type='gaussian', noise_levels=None):
 
 def plot(dir_name, model, dataset):
 
-    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    model.to(device)
-    model.load_state_dict(torch.load(f"{dir_name}/model.pt", map_location=device))
-
     print(f"Plotting loss and accuracy over epochs for model {model.get_name()} and dataset {dataset.get_name()}...")
     plot_epochs('loss', dir_name).savefig(f"{dir_name}/loss_plot.png")
     plot_epochs('accuracy', dir_name).savefig(f"{dir_name}/accuracy_plot.png")
@@ -164,6 +162,11 @@ def plot(dir_name, model, dataset):
     # print(f"Plotting accuracy over noise levels for model {dir_name}...")
     # plot_noise_levels(model, dataset).savefig(f"{dir_name}/noise_level_accuracy_plot.png")
     val_loader = DataLoader(dataset, batch_size=4, shuffle=True)
+
+    for i, frame in enumerate(get_reconstructed_images(val_loader, model, None)):
+        img = torchvision.transforms.ToPILImage()(frame)
+        img.save(f'{dir_name}/reconstructed_image_{i}.png')
+
     print(f"Plotting accuracy over timestep for model {dir_name}...")
     plot_timesteps(model, val_loader, 'timestep accuracy').savefig(
         f"{dir_name}/timestep_accuracy_plot_{dataset.get_half()}.png")
@@ -190,6 +193,11 @@ def plot_model_dataset(dir_name, model_name, ds_name, nt, class_weight, rec_weig
     :return: None, plots model and dataset
     """
     model = get_model_by_name(model_name, nt=nt, class_weight=class_weight, rec_weight=rec_weight)
+    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+    model.to(device)
+    model.load_state_dict(torch.load(f"{dir_name}/model.pt", map_location=device))
+
+    # plot_psychometric_function('./ko_data', model, nt, 16)
 
     # For now, we won't apply any transforms when testing the model except taking the specified half
     dataset = get_dataset_by_name(ds_name, nt=nt, train=False, transforms=None, half=half)
@@ -197,9 +205,103 @@ def plot_model_dataset(dir_name, model_name, ds_name, nt, class_weight, rec_weig
     plot(dir_name, model, dataset)
 
 
-def show_sample_input(dataset, nt):
-    data = dataset(nt, train=True)
-    data_loader = DataLoader(data, batch_size=16, shuffle=True)
+def plot_model(dir_name, model_name, nt, class_weight, rec_weight):
+    model = get_model_by_name(model_name, nt=nt, class_weight=class_weight, rec_weight=rec_weight)
+    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+    model.to(device)
+    model.load_state_dict(torch.load(f"{dir_name}/model.pt", map_location=device))
+
+    plot_psychometric_function('./ko_data', model, nt, 4, dir_name)
+
+
+def plot_psychometric_function(img_dir, model, nt, batch_size, output_dir):
+    """
+    Plots psychometric function for a given group of ko_data
+
+    :param img_dir: Directory which contains the ko_data to plot
+    :param model: Prednet model in classification mode
+    :param nt: Number of timesteps to plot
+    :return:
+    """
+    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+
+    print("Gathering psychometric data...")
+    data = []
+    for filename in os.listdir(img_dir):
+        if filename[0] == '.':
+            continue
+        words = filename.split(".")[0].split('-')
+        fear = int(words[1].replace("fe", ""))
+        happiness = int(words[2].replace("ha", ""))
+        img = torchvision.io.read_image(f"{img_dir}/{filename}")
+        if img.size(dim=0) == 1:
+            rgb_like = torchvision.transforms.functional.rgb_to_grayscale(img.repeat(3, 1, 1))
+        else:
+            rgb_like = img
+        resized = torchvision.transforms.Resize((256, 256))(rgb_like)
+        img = torch.unsqueeze(resized, 0).repeat(1, 3, 1, 1)
+        frames = list()
+        for _ in range(nt):
+            frames.append(img)
+
+        frames = torch.cat(frames, 0)
+
+        data.append((frames, (happiness, fear)))
+
+    # if os.path.exists(f"./{output_dir}/data_log.csv"):
+    #    file = open(f"./{output_dir}/data_log.csv", "r")
+    #    data_to_plot = list(csv.reader(file, delimiter=","))
+    #    file.close()
+    # else:
+    data_to_plot = list()
+
+    print(f"Plotting psychometric function for model {model.get_name()}...")
+    batch = list()
+    labels = list()
+    for i, (frames, (happiness, fear)) in enumerate(data):
+        if i < len(data_to_plot):
+            continue
+        print(f"Working on image {i}...")
+        frames = frames.unsqueeze(0)
+        batch.append(frames)
+        labels.append((happiness, fear))
+        if len(batch) == batch_size:
+            batch = torch.cat(batch, 0)
+
+            classification = model(batch)
+            for j in range(len(classification)):
+                # happiness / fear
+                happiness, fear = labels[j]
+                data_to_plot.append([happiness, fear, [float(x) for x in classification[j]]])
+            batch = list()
+            labels = list()
+            print("Finished a batch!")
+
+    data_to_plot = [[happiness, fear, list(scipy.special.softmax(_class))] for happiness, fear, _class in data_to_plot]
+    happiness_data = [[happiness, _class[1] / _class[0]] for happiness, _, _class in data_to_plot]
+    fear_data = [[fear, _class[0] / _class[1]] for happiness, fear, _class in data_to_plot]
+
+    with open(f'./{output_dir}/data_log.csv', 'w') as f:
+        write = csv.writer(f)
+        for datum in data_to_plot:
+            write.writerow(datum)
+
+    happiness_data = pd.DataFrame(happiness_data, columns=["H_Actual", "Confidence"])
+    fear_data = pd.DataFrame(fear_data, columns=["F_Actual", "Confidence"])
+
+    sns.regplot(
+        data=happiness_data,
+        x="H_Actual", y="Confidence"
+    ).set(yscale="log").savefig(f"./{output_dir}/happiness_psych_plot_regression.png")
+
+    sns.regplot(
+        data=fear_data,
+        x="F_Actual", y="Confidence"
+    ).set(yscale="log").savefig(f"./{output_dir}/fear_psych_plot_regression.png")
+
+
+def show_sample_input(dataset):
+    data_loader = DataLoader(dataset, batch_size=16, shuffle=True)
     for (label, frames) in enumerate(data_loader):
         for i, frame in enumerate(frames[0][0]):
             img = torchvision.transforms.ToPILImage()(frame[0])
@@ -208,7 +310,9 @@ def show_sample_input(dataset, nt):
 
 
 if __name__ == "__main__":
-    plot_model_dataset('prednet_10_c0.9_r0.1_dynamic', 'prednet', 'CK', nt=10, class_weight=0.9, rec_weight=0.1, half=None)
+    # show_sample_input(dataset=get_dataset_by_name(name='psych', nt=10, train=False, transforms=None, half=None))
+    # plot_model_dataset('model:prednet_10_c0.9_r0.1:dataset:Psychometric_no_half', 'prednet', 'psych', nt=10, class_weight=0.9, rec_weight=0.1, half=None)
+    plot_model('model:prednet_10_c0.9_r0.1:dataset:Psychometric_no_half', 'prednet', nt=10, class_weight=0.9, rec_weight=0.1)
     # show_sample_input(DATASETS['CK'], nt=10)
     # plot(get_model_by_name('prednet', class_weight=0.9, rec_weight=0.1, nt=10, noise_type='gaussian',
     #                       noise_intensities=[0.0]), DATASETS['CKStatic'], 'bottom')
