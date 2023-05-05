@@ -48,3 +48,18 @@ def get_accuracy(val_loader, model, timestep=None):
 
         print("Timestep: {}, Step: {}, Accuracy: {}".format("avg" if timestep is None else timestep, i, accuracy))
     return accuracy
+
+
+def get_reconstructed_images(val_loader, model, timestep=None):
+    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+    model.set_output_mode("prediction")
+
+    # Get the first set of inputs and labels
+    for i, (inputs, labels) in enumerate(val_loader):
+        break
+
+    inputs = Variable(inputs.to(device))
+    prediction = model(inputs, timestep)
+
+    model.set_output_mode("classification")
+    return prediction
