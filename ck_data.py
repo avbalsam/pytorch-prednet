@@ -11,12 +11,10 @@ from PIL.Image import Image
 SHOW_PLOT = False
 
 
-def get_ck_data(source_dir="/Users/avbalsam/Desktop/Predictive_Coding_UROP/CK+/cohn-kanade-images",
+def get_ck_data(source_dir="/Users/avbalsam/Desktop/Predictive_Coding_UROP/CK+/cohn-kanade-ko_data",
                 label_dir="/Users/avbalsam/Desktop/Predictive_Coding_UROP/CK+/Emotion",
                 output_path="/om2/user/avbalsam/prednet/ck_data/ck_data.hkl"):
     ck_data = list()
-
-    # TODO: Make network able to train on identification task
     for subject in os.listdir(source_dir):
         subject_path = f"{source_dir}/{subject}"
         if not os.path.isfile(subject_path):
@@ -53,20 +51,13 @@ def get_ck_data(source_dir="/Users/avbalsam/Desktop/Predictive_Coding_UROP/CK+/c
     return ck_data
 
 
-class CK(data.Dataset):
-    def __init__(self, nt: int, train: bool, data_path: str = "/om2/user/avbalsam/prednet/ck_data/ck_data.hkl",
-                 transforms=None):
+class FrameSequenceDataset(data.Dataset):
+    """General superclass for any dataset which includes only frame sequences"""
+    def __init__(self, raw_data, nt: int, train: bool, transforms=None):
         self.labels = [0, 1, 2, 3, 4, 5, 6, 7]
 
         self.half = None
         self.transforms = transforms
-        if os.path.exists("/Users/avbalsam/Desktop/Predictive_Coding_UROP/ck_data/ck_data.hkl"):
-            raw_data = hkl.load("/Users/avbalsam/Desktop/Predictive_Coding_UROP/ck_data/ck_data.hkl")
-        elif os.path.exists(data_path):
-            raw_data = hkl.load(data_path)
-        else:
-            print("Could not find pickled ck_data file. Compiling data from scratch...")
-            raw_data = get_ck_data(output_path=data_path)
 
         classes = dict()
         for frames, label in raw_data:
@@ -87,9 +78,6 @@ class CK(data.Dataset):
 
         self.nt = nt
 
-    def get_name(self):
-        return f"CK+_{'no' if self.half is None else self.half}_half"
-
     def get_half(self):
         return self.half
 
@@ -102,6 +90,15 @@ class CK(data.Dataset):
         :return: None
         """
         self.half = half
+
+    def get_labels(self):
+        """
+        Returns a list of all possible labels for this dataset.
+        """
+        return self.labels
+
+    def __len__(self):
+        return len(self.data)
 
     def __getitem__(self, index):
         frames, label = self.data[index]
@@ -146,7 +143,7 @@ class CK(data.Dataset):
             # Append the transformed image to the list
             frames_transformed.append(image)
 
-        # Make sure all images have three channels
+        # Make sure all ko_data have three channels
         if frames_transformed[0].size(dim=1) == 1:
             frames_transformed = [frame.repeat(1, 3, 1, 1) for frame in frames_transformed]
         elif frames_transformed[0].size(dim=1) == 3:
@@ -175,18 +172,25 @@ class CK(data.Dataset):
 
         return frames_transformed, label
 
-    def __len__(self):
-        return len(self.data)
 
-    def get_labels(self):
-        """
-        Returns a list of all possible labels for this dataset.
-        """
-        return self.labels
+class CK(FrameSequenceDataset):
+    def __init__(self, nt: int, train: bool, data_path: str = "/om2/user/avbalsam/prednet/ck_data/ck_data.hkl",
+                 transforms=None):
+        if os.path.exists("/Users/avbalsam/Desktop/Predictive_Coding_UROP/ck_data/ck_data.hkl"):
+            raw_data = hkl.load("/Users/avbalsam/Desktop/Predictive_Coding_UROP/ck_data/ck_data.hkl")
+        elif os.path.exists(data_path):
+            raw_data = hkl.load(data_path)
+        else:
+            print("Could not find pickled ck_data file. Compiling data from scratch...")
+            raw_data = get_ck_data(output_path=data_path)
+        super().__init__(raw_data, nt=nt, train=train, transforms=transforms)
+
+    def get_name(self):
+        return f"CK+_{'no' if self.half is None else self.half}_half"
 
 
 class CKStatic(CK):
-    """Access repeated static images from CK+ dataset,
+    """Access repeated static ko_data from CK+ dataset,
     to use as a control.
     To choose which frame of the video sequences to access,
     change the n_frame parameter.
@@ -203,6 +207,38 @@ class CKStatic(CK):
 
     def get_name(self):
         return f"{super().get_name()}_frame_{self.n_frame}"
+
+
+class Psychometric(FrameSequenceDataset):
+    def __init__(self, nt: int, train: bool, transforms=None, data_path='./ko_data'):
+        data = []
+        for filename in os.listdir(data_path):
+            if filename[0] == '.':
+                continue
+            words = filename.split(".")[0].split('-')
+            fear = int(words[1].replace("fe", ""))
+            happiness = int(words[2].replace("ha", ""))
+            img = torchvision.io.read_image(f"{data_path}/{filename}")
+            if img.size(dim=0) == 1:
+                rgb_like = torchvision.transforms.functional.rgb_to_grayscale(img.repeat(3, 1, 1))
+            else:
+                rgb_like = img
+            resized = torchvision.transforms.Resize((256, 256))(rgb_like)
+            # img = torch.unsqueeze(resized, 0).repeat(1, 3, 1, 1).numpy()
+            img = resized.numpy()
+            frames = list()
+            for _ in range(nt):
+                frames.append(img)
+
+            # frames = torch.cat(frames, 0)
+
+            # 0: Fear, 1: Happiness
+            data.append((frames, 0 if fear > happiness else 1))
+
+        super().__init__(data, nt=nt, train=train, transforms=None)
+
+    def get_name(self):
+        return f"Psychometric_{'no' if self.half is None else self.half}_half"
 
 
 if __name__ == "__main__":
