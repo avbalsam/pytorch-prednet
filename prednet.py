@@ -186,6 +186,10 @@ class PredNet(nn.Module):
     def get_rec_error(self):
         return self.rec_error
 
+    def set_output_mode(self, mode):
+        assert mode in ["classification", "prediction"], "Please choose a valid output mode!"
+        self.output_mode = mode
+
 
 class SatLU(nn.Module):
     def __init__(self, lower=0, upper=255, inplace=False):
