@@ -1,6 +1,6 @@
 import torch
 
-from ck_data import CK, CKStatic
+from ck_data import CK, CKStatic, Psychometric
 from controls.prednet_additive import PredNetAdditive
 from controls.prednet_feedforward import PredNetFF
 from mnist_data_prednet import MNIST_Frames
@@ -72,5 +72,7 @@ def get_dataset_by_name(name, nt, train, transforms, half):
         ds.set_n_frame(n_frame)
         ds.set_half(half)
         return ds
+    elif name == 'psych':
+        return Psychometric(nt=nt, train=train, transforms=transforms)
 
 
