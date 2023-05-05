@@ -14,13 +14,9 @@ from utility import get_accuracy
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-v', '--version', default=1, type=int, help='experiment version')
-    # parser.add_argument('-j', '--job', default=1, type=int, help='slurm array job id')
-    # parser.add_argument('-i', '--id', default=1, type=int, help='slurm array task id')
     parser.add_argument('-m', '--model_name', default='prednet', type=str, help='filename of python file for model')
     parser.add_argument('-d', '--data_name', default='psych', type=str,
                         help='filename of python file for dataset')
-    parser.add_argument('-b', '--blur', default=0.0, type=float, help='amount of blur to add to dataset images')
     args = parser.parse_args()
 
     return args
@@ -54,17 +50,6 @@ def torch_main(args):
                                                    train=True, transforms=transforms, half=None)
         val_dataset = models.get_dataset_by_name(name=args.data_name, nt=nt,
                                                  train=False, transforms=None, half=None)
-        """train_dataset = DATASETS[args.data_name](nt, train=True,
-                                                 transforms=torchvision.transforms.Compose(
-                                                     [
-                                                         torchvision.transforms.RandomHorizontalFlip(),
-                                                         torchvision.transforms.RandomAffine(degrees=15,
-                                                                                             translate=[0, 0.3],
-                                                                                             scale=[0.7, 1.15]),
-                                                     ]
-                                                 )
-                                                 )
-        val_dataset = DATASETS[args.data_name](nt, train=False, transforms=None)"""
 
         train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
         val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=True)
