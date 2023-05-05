@@ -18,7 +18,7 @@ def parse_args():
     # parser.add_argument('-j', '--job', default=1, type=int, help='slurm array job id')
     # parser.add_argument('-i', '--id', default=1, type=int, help='slurm array task id')
     parser.add_argument('-m', '--model_name', default='prednet', type=str, help='filename of python file for model')
-    parser.add_argument('-d', '--data_name', default='CK', type=str,
+    parser.add_argument('-d', '--data_name', default='psych', type=str,
                         help='filename of python file for dataset')
     parser.add_argument('-b', '--blur', default=0.0, type=float, help='amount of blur to add to dataset images')
     args = parser.parse_args()
