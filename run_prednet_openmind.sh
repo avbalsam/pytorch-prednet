@@ -13,25 +13,21 @@ hostname
 date "+%y/%m/%d %H:%M:%S"
 echo "Train Model"
 
-version=1
 model_name="prednet"
 data_name="CK"
-blur=0.0
 
-while getopts v:s:m:d:b: flag
+while getopts s:m:d: flag
 do
     case "${flag}" in
-        v) version=${OPTARG};;
         m) model_name=${OPTARG};;
         d) data_name=${OPTARG};;
-        b) blur=${OPTARG};;
         *) pass
     esac
 done
 
 source /om2/user/jangh/miniconda/etc/profile.d/conda.sh
 conda activate openmind
-python train.py -v "$version" -m "$model_name" -d "$data_name" -b "$blur"
+python train.py -m "$model_name" -d "$data_name"
 # --is_slurm=True \
 # --job=${SLURM_ARRAY_JOB_ID} \
 # --id=${SLURM_ARRAY_TASK_ID} \
